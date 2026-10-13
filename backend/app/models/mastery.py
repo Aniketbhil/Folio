@@ -73,6 +73,7 @@ class MasteryEvent(Base):
     )  # quiz | chat | diagnostic
     p_before: Mapped[float] = mapped_column(Float, nullable=False)
     p_after: Mapped[float] = mapped_column(Float, nullable=False)
+    attempt_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

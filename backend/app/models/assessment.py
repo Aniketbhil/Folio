@@ -9,6 +9,7 @@ from sqlalchemy import (
     JSON,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -116,6 +117,9 @@ class Attempt(Base):
     """Student attempt and grading for a single question."""
 
     __tablename__ = "attempts"
+    __table_args__ = (
+        UniqueConstraint("question_id", name="uq_attempts_question_id"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     student_id: Mapped[int] = mapped_column(
@@ -134,6 +138,7 @@ class Attempt(Base):
     citations: Mapped[List[Any]] = mapped_column(JSON, default=list, nullable=False)
     misconception: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     time_taken_sec: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    meta: Mapped[Optional[dict]] = mapped_column(JSON, default=dict, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

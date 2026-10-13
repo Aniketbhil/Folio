@@ -312,6 +312,7 @@ def plan_topic_difficulty_and_qtypes(
     kind: str,
     has_numerical: bool,
     warnings: List[str],
+    offset: int = 0,
 ) -> Tuple[List[str], List[str]]:
     """Determine difficulty and question types for the questions assigned to this topic."""
     # 1. Difficulty planning
@@ -321,7 +322,7 @@ def plan_topic_difficulty_and_qtypes(
     elif kind in {"diagnostic", "mock_exam"}:
         # 30% easy, 50% medium, 20% hard mix
         pool = ["easy", "medium", "medium", "hard", "easy", "medium", "medium", "hard", "medium", "easy"]
-        difficulties = [pool[i % len(pool)] for i in range(count)]
+        difficulties = [pool[(offset + i) % len(pool)] for i in range(count)]
     else:
         # "auto" for quiz: based on student's p_mastery for this topic
         mastery = db.scalar(
@@ -349,8 +350,8 @@ def plan_topic_difficulty_and_qtypes(
         if warn_msg not in warnings:
             warnings.append(warn_msg)
 
-    # Distribute types roughly evenly
-    qtypes_plan = [usable_qtypes[i % len(usable_qtypes)] for i in range(count)]
+    # Distribute types roughly evenly across the entire assessment
+    qtypes_plan = [usable_qtypes[(offset + i) % len(usable_qtypes)] for i in range(count)]
 
     return difficulties, qtypes_plan
 
@@ -457,6 +458,7 @@ def prepare_topic_contexts(
 ) -> List[TopicContext]:
     """Prepare the complete TopicContext objects for all assigned topics."""
     contexts: List[TopicContext] = []
+    global_q_offset = 0
 
     # Map parent topics
     parent_ids = {t.parent_id for t in topics if t.parent_id is not None}
@@ -496,7 +498,9 @@ def prepare_topic_contexts(
             kind=kind,
             has_numerical=has_num,
             warnings=warnings,
+            offset=global_q_offset,
         )
+        global_q_offset += count
 
         contexts.append(
             TopicContext(

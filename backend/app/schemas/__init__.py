@@ -60,6 +60,7 @@ from app.schemas.assessment import (
     QuestionTopicOut,
     QuestionConceptOut,
     QuestionSourceOut,
+    QuestionAttemptOut,
     QuestionOut,
     AssessmentCreate,
     AssessmentOut,
@@ -67,6 +68,11 @@ from app.schemas.assessment import (
     AssessmentDeleteResponse,
     DevGenerateQuestionsRequest,
     DevGenerateQuestionsResponse,
+    AnswerSubmitRequest,
+    AnswerSubmitResponse,
+    AssessmentReportResponse,
+    DevBktSimulateRequest,
+    DevBktSimulateResponse,
 )
 
 __all__ = [

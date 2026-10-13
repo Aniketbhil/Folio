@@ -36,6 +36,15 @@ class QuestionSourceOut(BaseModel):
     location: Dict[str, Any]
 
 
+class QuestionAttemptOut(BaseModel):
+    """Attempt summary included with answered question."""
+
+    answer: str
+    is_correct: bool
+    score: float
+    feedback: str
+
+
 class QuestionOut(BaseModel):
     """Public question schema returned to students (hiding correct answers when in-progress)."""
 
@@ -50,7 +59,7 @@ class QuestionOut(BaseModel):
     sources: List[QuestionSourceOut] = []
     answered: bool = False
     unit: Optional[str] = None
-    # Exposed only when assessment status == "submitted" (Prompt 6+)
+    attempt: Optional[QuestionAttemptOut] = None
     correct_answer: Optional[str] = None
     explanation: Optional[str] = None
 
@@ -78,6 +87,8 @@ class AssessmentOut(BaseModel):
     title: Optional[str] = None
     config: Dict[str, Any] = {}
     num_questions: int
+    answered_count: int = 0
+    score: Optional[float] = None
     created_at: datetime
     warnings: List[str] = []
     generation_report: Dict[str, Any] = {}
@@ -123,3 +134,108 @@ class DevGenerateQuestionsResponse(BaseModel):
     duplicates: List[Dict[str, Any]] = []
     mode: str
     verify_model: Optional[str] = None
+
+
+class AnswerSubmitRequest(BaseModel):
+    """Request payload for answering an assessment question."""
+
+    answer: str
+    time_taken_sec: Optional[float] = None
+    student_id: Optional[int] = None
+
+
+class AnswerMasteryUpdate(BaseModel):
+    """Mastery delta for a topic after answering a question."""
+
+    topic: Dict[str, Any]
+    before: float
+    after: float
+    status_before: str
+    status_after: str
+
+
+class AnswerProgress(BaseModel):
+    """Progress tracking within an assessment."""
+
+    answered: int
+    total: int
+
+
+class AnswerSubmitResponse(BaseModel):
+    """Response returned when submitting an answer."""
+
+    attempt_id: int
+    question_id: int
+    is_correct: bool
+    score: float
+    correct_answer: Any
+    explanation: str
+    feedback: str
+    citations: List[Dict[str, Any]] = []
+    misconception: Optional[str] = None
+    key_points_hit: Optional[List[str]] = None
+    key_points_missing: Optional[List[str]] = None
+    mastery_update: AnswerMasteryUpdate
+    progress: AnswerProgress
+
+
+class AssessmentReportSummary(BaseModel):
+    """Summary section of assessment performance report."""
+
+    score: float
+    score_pct: float
+    total_questions: int
+    answered: int
+    correct: int
+    skipped: int
+    avg_time_sec: Optional[float] = None
+    total_time_sec: Optional[float] = None
+
+
+class AssessmentReportResponse(BaseModel):
+    """Comprehensive performance report returned on submit and GET /report."""
+
+    assessment: Dict[str, Any]
+    summary: AssessmentReportSummary
+    by_topic: List[Dict[str, Any]] = []
+    weak_topics: List[Dict[str, Any]] = []
+    strong_topics: List[Dict[str, Any]] = []
+    by_difficulty: List[Dict[str, Any]] = []
+    by_type: List[Dict[str, Any]] = []
+    misconceptions: List[Dict[str, Any]] = []
+    review: List[Dict[str, Any]] = []
+    recommended_next_steps: List[Dict[str, Any]] = []
+    diagnostic_note: Optional[str] = None
+
+
+class DevBktSimulateStep(BaseModel):
+    """Input step for BKT simulation."""
+
+    score: float
+    qtype: str = "mcq"
+    difficulty: str = "medium"
+
+
+class DevBktSimulateRequest(BaseModel):
+    """Request payload for /dev/bkt-simulate."""
+
+    sequence: List[DevBktSimulateStep]
+    p_init: Optional[float] = None
+
+
+class DevBktTrajectoryItem(BaseModel):
+    """Single transition step in BKT simulation trajectory."""
+
+    step: int
+    score: float
+    qtype: str
+    difficulty: str
+    p_before: float
+    p_after: float
+
+
+class DevBktSimulateResponse(BaseModel):
+    """Response payload for /dev/bkt-simulate."""
+
+    trajectory: List[DevBktTrajectoryItem]
+

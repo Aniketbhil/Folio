@@ -50,6 +50,18 @@ class Settings(BaseSettings):
     quiz_parallelism: int = Field(default=3, description="Max concurrent LLM calls during question generation")
     quiz_max_rounds: int = Field(default=2, description="Generation and verification rounds to fill shortfall")
     verify_model: Optional[str] = Field(default=None, description="Optional model name for verification")
+    bkt_p_init: float = Field(default=0.30, description="Prior mastery for a student with no history on a topic")
+    bkt_p_learn: float = Field(default=0.15, description="Probability of learning on each opportunity")
+    bkt_p_slip: float = Field(default=0.10, description="Base slip probability")
+    bkt_guess_mcq: float = Field(default=0.25, description="Guess probability for MCQ")
+    bkt_guess_short: float = Field(default=0.10, description="Guess probability for short answer")
+    bkt_guess_numerical: float = Field(default=0.05, description="Guess probability for numerical questions")
+    bkt_min: float = Field(default=0.02, description="Minimum clamped mastery probability")
+    bkt_max: float = Field(default=0.98, description="Maximum clamped mastery probability")
+    grade_correct_threshold: float = Field(default=0.70, description="Score threshold to count as correct")
+    mastery_weak_below: float = Field(default=0.40, description="Mastery threshold below which topic is weak")
+    mastery_strong_above: float = Field(default=0.75, description="Mastery threshold above which topic is strong")
+    feedback_max_chars: int = Field(default=700, description="Maximum characters for feedback text")
 
     @property
     def parsed_cors_origins(self) -> List[str]:

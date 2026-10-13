@@ -9,7 +9,14 @@ from app.db.session import get_db
 from app.models.source import Chunk, Source
 from app.schemas.citation import Citation
 from app.schemas.tutor import DevAskRequest, DevAskResponse
-from app.schemas.assessment import DevGenerateQuestionsRequest, DevGenerateQuestionsResponse
+from app.schemas.assessment import (
+    DevBktSimulateRequest,
+    DevBktSimulateResponse,
+    DevBktTrajectoryItem,
+    DevGenerateQuestionsRequest,
+    DevGenerateQuestionsResponse,
+)
+from app.services.learner.mastery import bkt_update
 from app.schemas.dev import (
     EmbedTestRequest,
     EmbedTestResponse,
@@ -376,4 +383,34 @@ def dev_generate_questions(
         mode="mock" if settings.llm_mock else "live",
         verify_model=settings.verify_model if settings.verify_model else None,
     )
+
+
+@router.post("/bkt-simulate", response_model=DevBktSimulateResponse)
+def simulate_bkt(payload: DevBktSimulateRequest) -> DevBktSimulateResponse:
+    """Simulate BKT probability trajectory for a sequence of questions without writing to DB."""
+    settings = get_settings()
+    current_p = payload.p_init if payload.p_init is not None else settings.bkt_p_init
+    trajectory: List[DevBktTrajectoryItem] = []
+
+    for idx, item in enumerate(payload.sequence, start=1):
+        p_before = current_p
+        p_after = bkt_update(
+            p_prior=p_before,
+            score=item.score,
+            qtype=item.qtype,
+            difficulty=item.difficulty,
+        )
+        trajectory.append(
+            DevBktTrajectoryItem(
+                step=idx,
+                score=item.score,
+                qtype=item.qtype,
+                difficulty=item.difficulty,
+                p_before=p_before,
+                p_after=p_after,
+            )
+        )
+        current_p = p_after
+
+    return DevBktSimulateResponse(trajectory=trajectory)
 

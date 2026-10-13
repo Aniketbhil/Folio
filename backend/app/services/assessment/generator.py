@@ -135,13 +135,13 @@ class MockQuestionGenerator:
         ]
 
         sa_templates = [
-            "Explain the principle and significance of {concept_name} as detailed in the course material.",
-            "Describe the key characteristics and applications of {concept_name}.",
-            "Outline the fundamental properties and theoretical role of {concept_name}.",
-            "How is {concept_name} defined and applied in modern dynamics?",
-            "Summarize the governing rules and implications of {concept_name}.",
-            "Clarify the physical meaning and primary consequences of {concept_name}.",
-            "Discuss the core mechanism and theoretical foundation of {concept_name}.",
+            "Explain the principle and significance of {concept_name} in {topic_name} as detailed in the course material.",
+            "Describe the key characteristics and applications of {concept_name} for {topic_name}.",
+            "Outline the fundamental properties and theoretical role of {concept_name} within {topic_name}.",
+            "How is {concept_name} defined and applied in modern dynamics of {topic_name}?",
+            "Summarize the governing rules and implications of {concept_name} regarding {topic_name}.",
+            "Clarify the physical meaning and primary consequences of {concept_name} in {topic_name}.",
+            "Discuss the core mechanism and theoretical foundation of {concept_name} for {topic_name}.",
         ]
 
         for q_idx in range(context.requested_count):
@@ -217,21 +217,21 @@ class MockQuestionGenerator:
                 # short_answer (and numerical fallback)
                 chosen_prompt = ""
                 for t_idx, tmpl in enumerate(sa_templates):
-                    cand_prompt = tmpl.format(concept_name=concept_name)
+                    cand_prompt = tmpl.format(concept_name=concept_name, topic_name=context.topic.name)
                     cand_fp = compute_prompt_fingerprint(cand_prompt)
                     if cand_fp not in do_not_repeat_fps and cand_fp not in batch_fps:
                         chosen_prompt = cand_prompt
                         break
 
                 if not chosen_prompt:
-                    chosen_prompt = sa_templates[q_idx % len(sa_templates)].format(concept_name=concept_name) + f" (Variant {q_idx + seed % 100})"
+                    chosen_prompt = sa_templates[q_idx % len(sa_templates)].format(concept_name=concept_name, topic_name=context.topic.name) + f" (Variant {q_idx + seed % 100})"
 
                 batch_fps.add(compute_prompt_fingerprint(chosen_prompt))
                 first_sent = sentences[0]
                 model_answer = f"{concept_name} is defined as: {first_sent}"
                 key_points = [
-                    f"Accurate definition of {concept_name}",
-                    f"Clear connection to: {first_sent[:50]}",
+                    concept_name,
+                    first_sent[:50].strip(),
                 ]
                 meta = {
                     "key_points": key_points,

@@ -10,11 +10,12 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import AppError
-from app.models.assessment import Assessment, Question
+from app.models.assessment import Assessment, Attempt, Question
 from app.models.source import Chunk, Source
 from app.models.topic import Concept, Topic
 from app.schemas.assessment import (
     AssessmentOut,
+    QuestionAttemptOut,
     QuestionConceptOut,
     QuestionOptionOut,
     QuestionOut,
@@ -421,6 +422,14 @@ class AssessmentService:
         out_questions: List[QuestionOut] = []
         is_submitted = assessment.status == "submitted"
 
+        # Query attempts for this assessment to populate answered status and attempt details
+        attempts_map = {
+            att.question_id: att
+            for att in db.scalars(
+                select(Attempt).where(Attempt.assessment_id == assessment.id)
+            ).all()
+        }
+
         for qr in question_rows:
             top = topics_map.get(qr.topic_id)
             ptop = parents_map.get(top.parent_id) if top and top.parent_id else None
@@ -454,6 +463,19 @@ class AssessmentService:
 
             unit_label = qr.meta.get("unit") if qr.meta else None
 
+            att = attempts_map.get(qr.id)
+            is_answered = att is not None
+            reveal_keys = is_submitted or is_answered
+
+            attempt_out = None
+            if att:
+                attempt_out = QuestionAttemptOut(
+                    answer=att.answer,
+                    is_correct=att.is_correct,
+                    score=att.score,
+                    feedback=att.feedback,
+                )
+
             out_questions.append(
                 QuestionOut(
                     id=qr.id,
@@ -470,10 +492,11 @@ class AssessmentService:
                     ),
                     concept=QuestionConceptOut(id=conc.id, name=conc.name) if conc else None,
                     sources=srcs_out,
-                    answered=False,
+                    answered=is_answered,
                     unit=unit_label,
-                    correct_answer=qr.correct_answer if is_submitted else None,
-                    explanation=qr.explanation if is_submitted else None,
+                    attempt=attempt_out,
+                    correct_answer=qr.correct_answer if reveal_keys else None,
+                    explanation=qr.explanation if reveal_keys else None,
                 )
             )
 
@@ -484,8 +507,10 @@ class AssessmentService:
             kind=assessment.kind,
             status=assessment.status,
             title=assessment.title,
-            config=assessment.config,
+            config=assessment.config or {},
             num_questions=len(out_questions),
+            answered_count=len(attempts_map),
+            score=assessment.score,
             created_at=assessment.created_at,
             warnings=warnings,
             generation_report=generation_report,

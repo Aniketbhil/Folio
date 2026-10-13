@@ -53,6 +53,12 @@ def run_sqlite_migrations(engine_instance=engine) -> None:
         ensure_sqlite_column(engine_instance, "messages", "meta", "JSON")
         ensure_sqlite_column(engine_instance, "questions", "meta", "JSON")
         ensure_sqlite_column(engine_instance, "assessments", "title", "VARCHAR")
+        ensure_sqlite_column(engine_instance, "attempts", "meta", "JSON")
+        ensure_sqlite_column(engine_instance, "mastery_events", "attempt_id", "INTEGER")
+        with engine_instance.connect() as conn:
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_attempts_question_id ON attempts (question_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_mastery_events_attempt_id ON mastery_events (attempt_id)"))
+            conn.commit()
     except Exception:
         pass
 

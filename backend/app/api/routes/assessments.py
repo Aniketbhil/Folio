@@ -11,11 +11,16 @@ from app.models.assessment import Assessment, Attempt, Question
 from app.models.course import Course
 from app.models.student import Student
 from app.schemas.assessment import (
+    AnswerSubmitRequest,
+    AnswerSubmitResponse,
     AssessmentCreate,
     AssessmentDeleteResponse,
     AssessmentListItem,
     AssessmentOut,
+    AssessmentReportResponse,
 )
+from app.services.assessment.answering import AnswerService
+from app.services.assessment.reporting import build_report, submit_assessment
 from app.services.assessment.service import get_assessment_service
 from app.services.vector_store import get_vector_store
 
@@ -142,7 +147,7 @@ def get_assessment(
     )
 
     svc = get_assessment_service()
-    out = svc._format_assessment_out(
+    return svc._format_assessment_out(
         db=db,
         assessment=assessment,
         question_rows=questions,
@@ -150,10 +155,60 @@ def get_assessment(
         generation_report=assessment.config.get("generation_report", {}),
     )
 
-    for q in out.questions:
-        q.answered = q.id in attempt_question_ids
 
-    return out
+@router.post(
+    "/assessments/{assessment_id}/questions/{question_id}/answer",
+    response_model=AnswerSubmitResponse,
+    status_code=status.HTTP_200_OK,
+)
+def submit_question_answer(
+    assessment_id: int,
+    question_id: int,
+    payload: AnswerSubmitRequest,
+    db: Session = Depends(get_db),
+) -> AnswerSubmitResponse:
+    """Submit and grade an answer for a single assessment question."""
+    return AnswerService.submit_answer(
+        db=db,
+        assessment_id=assessment_id,
+        question_id=question_id,
+        answer=payload.answer,
+        time_taken_sec=payload.time_taken_sec,
+        student_id=payload.student_id,
+    )
+
+
+@router.post(
+    "/assessments/{assessment_id}/submit",
+    response_model=AssessmentReportResponse,
+    status_code=status.HTTP_200_OK,
+)
+def submit_assessment_route(
+    assessment_id: int,
+    db: Session = Depends(get_db),
+) -> AssessmentReportResponse:
+    """Submit an in-progress assessment and receive full performance report."""
+    return submit_assessment(db=db, assessment_id=assessment_id)
+
+
+@router.get(
+    "/assessments/{assessment_id}/report",
+    response_model=AssessmentReportResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_assessment_report(
+    assessment_id: int,
+    db: Session = Depends(get_db),
+) -> AssessmentReportResponse:
+    """Retrieve full performance report for a submitted assessment."""
+    assessment = db.get(Assessment, assessment_id)
+    if not assessment:
+        raise AppError(
+            f"Assessment with id {assessment_id} not found",
+            code="assessment_not_found",
+            status_code=404,
+        )
+    return build_report(db=db, assessment=assessment)
 
 
 @router.get(
