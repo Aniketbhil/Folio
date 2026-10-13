@@ -62,6 +62,19 @@ class Settings(BaseSettings):
     mastery_weak_below: float = Field(default=0.40, description="Mastery threshold below which topic is weak")
     mastery_strong_above: float = Field(default=0.75, description="Mastery threshold above which topic is strong")
     feedback_max_chars: int = Field(default=700, description="Maximum characters for feedback text")
+    forget_base_days: float = Field(default=3.0, description="Memory stability with 0 correct answers")
+    forget_per_correct: float = Field(default=0.5, description="Stability multiplier increment per correct answer")
+    forget_max_days: float = Field(default=60.0, description="Maximum stability in days")
+    review_due_below: float = Field(default=0.70, description="Retrievability below which a topic is due for review")
+    prereq_ok_above: float = Field(default=0.50, description="Effective mastery at/above which a prerequisite counts as satisfied")
+    chat_nudge_enabled: bool = Field(default=True, description="Enable mastery nudge on grounded tutor answers")
+    chat_nudge_delta: float = Field(default=0.02, description="Mastery bump per grounded tutor answer on a topic")
+    chat_nudge_cap: float = Field(default=0.55, description="Maximum stored mastery achievable via chat alone")
+    chat_nudge_max_per_topic_per_day: int = Field(default=3, description="Maximum chat nudges per student topic per day")
+    chat_struggle_asks: int = Field(default=3, description="Tutor questions on a topic within 7 days signalling struggle")
+    tutor_personalize: bool = Field(default=True, description="Personalize tutor depth by student topic mastery")
+    dash_recent_attempts: int = Field(default=10, description="Recent attempts displayed on student dashboard")
+    study_session_min: int = Field(default=20, description="Study plan block length in minutes")
 
     @property
     def parsed_cors_origins(self) -> List[str]:

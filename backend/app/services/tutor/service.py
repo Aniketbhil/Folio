@@ -17,7 +17,11 @@ from app.schemas.tutor import (
     TutorCitation,
     TutorResponse,
 )
+from app.models.mastery import Mastery
 from app.services.citations import build_citation
+from app.services.learner.forgetting import effective_mastery
+from app.services.learner.mastery import status_for
+from app.services.learner.nudges import apply_chat_nudge
 from app.services.llm import get_llm_client
 from app.services.retrieval import RetrievedChunk, retrieve
 from app.services.tutor.mock import MockTutor, is_followup_message
@@ -97,6 +101,68 @@ def get_topics_for_chunks(db: Session, chunk_ids: List[int], max_topics: int = 3
     ).all()
 
     return [RelatedTopicItem(id=row[0], name=row[1]) for row in rows]
+
+
+def build_student_level_hint(
+    db: Session,
+    student_id: Optional[int],
+    retrieved_chunks: List[RetrievedChunk],
+) -> Optional[str]:
+    """Compute pedagogical hint based on student's mastery in retrieved leaf topics."""
+    if not student_id or not retrieved_chunks:
+        return None
+
+    top_3_chunk_ids = [rc.chunk.id for rc in retrieved_chunks[:3]]
+    topic_rows = db.scalars(
+        select(Topic)
+        .join(ChunkTopic, ChunkTopic.topic_id == Topic.id)
+        .where(ChunkTopic.chunk_id.in_(top_3_chunk_ids))
+        .distinct()
+    ).all()
+
+    # Filter to leaf topics only
+    leaf_topics: List[Topic] = []
+    for t in topic_rows:
+        has_sub = db.scalar(
+            select(func.count(Topic.id)).where(Topic.parent_id == t.id)
+        ) or 0
+        if has_sub == 0:
+            leaf_topics.append(t)
+
+    if not leaf_topics:
+        return None
+
+    leaf_ids = [t.id for t in leaf_topics]
+    mastery_rows = db.scalars(
+        select(Mastery).where(
+            Mastery.student_id == student_id,
+            Mastery.topic_id.in_(leaf_ids),
+        )
+    ).all()
+    mastery_map = {m.topic_id: m for m in mastery_rows}
+
+    level_lines: List[str] = []
+    for t in leaf_topics:
+        m = mastery_map.get(t.id)
+        if m:
+            eff = effective_mastery(m.p_mastery, m.last_practiced_at, m.correct_count)
+            st = status_for(eff, m.attempts_count)
+        else:
+            eff = 0.0
+            st = status_for(eff, 0)
+        level_lines.append(f"- {t.name}: {st}")
+
+    topic_levels_text = "\n".join(level_lines)
+    hint_text = (
+        f"STUDENT MASTERY LEVEL:\n"
+        f"{topic_levels_text}\n\n"
+        f"Pedagogical guidance by level:\n"
+        f"- new or weak: explain from the basics, define terms, give one concrete example, mention the prerequisite concept if relevant;\n"
+        f"- learning: moderate depth with one example;\n"
+        f"- strong: be concise, skip basics, add a deeper insight or common pitfall.\n"
+        f"Never claim the student did or did not do something; the level is only a hint for depth."
+    )
+    return hint_text
 
 
 class TutorService:
@@ -286,9 +352,16 @@ class TutorService:
                 history_text = "\n".join(
                     f"{m['role'].upper()}: {m['content']}" for m in history_list
                 )
+                student_level_hint = (
+                    build_student_level_hint(db, conversation.student_id, retrieved_chunks)
+                    if settings.tutor_personalize
+                    else None
+                )
+                student_level_block = f"\n{student_level_hint}\n" if student_level_hint else ""
                 answer_prompt = TUTOR_ANSWER_USER_PROMPT.format(
                     sources_text=sources_text,
                     history_text=history_text or "No prior messages.",
+                    student_level_block=student_level_block,
                     question=content,
                 )
 
@@ -377,6 +450,16 @@ class TutorService:
         if not followups and related_topics:
             followups = [f"Explain {t.name}" for t in related_topics]
 
+        # Apply chat mastery nudge
+        mastery_nudge: Optional[Dict[str, Any]] = None
+        if grounding_result in ("grounded", "partial") and related_topics:
+            try:
+                nudges = apply_chat_nudge(db, conversation.student_id, [t.id for t in related_topics])
+                if nudges:
+                    mastery_nudge = nudges[0]
+            except Exception as exc:
+                logger.warning("Chat mastery nudge failed: %s", exc)
+
         # 9. Persist messages and update conversation title
         user_msg = Message(
             conversation_id=conversation.id,
@@ -401,6 +484,7 @@ class TutorService:
                 "related_topics": [t.model_dump() for t in related_topics],
                 "top_score": round(best_score, 4) if best_score is not None else None,
                 "retrieved_chunk_ids": [rc.chunk.id for rc in retrieved_chunks],
+                "mastery_nudge": mastery_nudge,
             },
         )
         db.add(asst_msg)
@@ -432,6 +516,7 @@ class TutorService:
             outside_knowledge_note=outside_note,
             followups=followups,
             related_topics=related_topics,
+            mastery_nudge=mastery_nudge,
         )
 
     def ask_dev(
@@ -439,6 +524,7 @@ class TutorService:
         db: Session,
         course_id: int,
         question: str,
+        student_id: Optional[int] = None,
         topic_ids: Optional[List[int]] = None,
         history: Optional[List[Dict[str, str]]] = None,
     ) -> DevAskResponse:
@@ -496,6 +582,12 @@ class TutorService:
             topic_ids=scoped_topic_ids,
         )
 
+        student_level_hint = (
+            build_student_level_hint(db, student_id, retrieved_chunks)
+            if settings.tutor_personalize and student_id
+            else None
+        )
+
         best_score = retrieved_chunks[0].score if retrieved_chunks else 0.0
 
         top_hits = [
@@ -545,9 +637,11 @@ class TutorService:
                     for idx, rc in enumerate(retrieved_chunks, start=1)
                 ]
                 sources_text = "\n\n".join(sources_blocks)
+                student_level_block = f"\n{student_level_hint}\n" if student_level_hint else ""
                 answer_prompt = TUTOR_ANSWER_USER_PROMPT.format(
                     sources_text=sources_text,
                     history_text="No prior messages.",
+                    student_level_block=student_level_block,
                     question=question,
                 )
                 llm = get_llm_client()
@@ -647,6 +741,7 @@ class TutorService:
             ),
             mode="mock" if settings.llm_mock else "live",
             raw_llm_output=raw_llm_dict,
+            student_level_hint=student_level_hint,
             final_response=final_response_dict,
         )
 

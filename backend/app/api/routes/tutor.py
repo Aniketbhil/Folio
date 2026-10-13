@@ -224,6 +224,7 @@ def get_conversation_messages(
                 outside_knowledge_note=meta.get("outside_knowledge_note"),
                 followups=meta.get("followups", []),
                 related_topics=related_topics,
+                mastery_nudge=meta.get("mastery_nudge"),
                 created_at=m.created_at,
             )
         )

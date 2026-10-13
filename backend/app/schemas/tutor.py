@@ -57,6 +57,7 @@ class MessageRead(BaseModel):
     outside_knowledge_note: Optional[str] = None
     followups: List[str] = []
     related_topics: List[RelatedTopicItem] = []
+    mastery_nudge: Optional[Dict[str, Any]] = None
     created_at: datetime
 
 
@@ -71,6 +72,7 @@ class TutorResponse(BaseModel):
     outside_knowledge_note: Optional[str] = None
     followups: List[str] = []
     related_topics: List[RelatedTopicItem] = []
+    mastery_nudge: Optional[Dict[str, Any]] = None
 
 
 class ConversationDeleteResponse(BaseModel):
@@ -80,6 +82,7 @@ class ConversationDeleteResponse(BaseModel):
 class DevAskRequest(BaseModel):
     course_id: int
     question: str
+    student_id: Optional[int] = None
     topic_ids: Optional[List[int]] = None
     history: Optional[List[Dict[str, str]]] = None
 
@@ -106,4 +109,7 @@ class DevAskResponse(BaseModel):
     thresholds: DevAskThresholds
     mode: str  # "mock" | "live"
     raw_llm_output: Optional[Dict[str, Any]] = None
+    student_level_hint: Optional[str] = None
+    mastery_nudge: Optional[Dict[str, Any]] = None
     final_response: Dict[str, Any]
+

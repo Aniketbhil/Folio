@@ -24,12 +24,21 @@ CRITICAL RULES:
    - "followups": list of 2-3 short suggested next questions that the course material can answer
 """
 
+TUTOR_STUDENT_LEVEL_GUIDANCE = """STUDENT MASTERY LEVEL:
+{topic_levels_text}
+
+Pedagogical guidance by level:
+- new or weak: explain from the basics, define terms, give one concrete example, mention the prerequisite concept if relevant;
+- learning: moderate depth with one example;
+- strong: be concise, skip basics, add a deeper insight or common pitfall.
+Never claim the student did or did not do something; the level is only a hint for depth."""
+
 TUTOR_ANSWER_USER_PROMPT = """COURSE MATERIAL SOURCES:
 {sources_text}
 
 CONVERSATION HISTORY:
 {history_text}
-
+{student_level_block}
 STUDENT QUESTION:
 {question}
 """

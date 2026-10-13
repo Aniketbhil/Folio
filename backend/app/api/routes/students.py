@@ -41,8 +41,14 @@ def list_students(
 def get_student(
     student_id: int,
     db: Session = Depends(get_db),
-) -> Student:
-    """Get student profile by ID."""
+) -> StudentRead:
+    """Get student profile by ID with active course summaries."""
+    from sqlalchemy import func
+    from app.models.course import Course
+    from app.models.mastery import Mastery
+    from app.models.topic import Topic
+    from app.schemas.student import StudentCourseActivityOut
+
     student = db.get(Student, student_id)
     if not student:
         raise AppError(
@@ -50,4 +56,34 @@ def get_student(
             code="not_found",
             status_code=404,
         )
-    return student
+
+    active_course_rows = db.execute(
+        select(Course.id, Course.name)
+        .join(Topic, Topic.course_id == Course.id)
+        .join(Mastery, Mastery.topic_id == Topic.id)
+        .where(Mastery.student_id == student_id, Mastery.attempts_count > 0)
+        .distinct()
+    ).all()
+
+    courses_act: List[StudentCourseActivityOut] = []
+    for cid, ctitle in active_course_rows:
+        m_stats = db.execute(
+            select(func.avg(Mastery.p_mastery), func.max(Mastery.last_practiced_at))
+            .join(Topic, Topic.id == Mastery.topic_id)
+            .where(Mastery.student_id == student_id, Topic.course_id == cid, Mastery.attempts_count > 0)
+        ).first()
+        courses_act.append(
+            StudentCourseActivityOut(
+                course_id=cid,
+                course_name=ctitle,
+                average_mastery=round(float(m_stats[0]), 4) if m_stats and m_stats[0] is not None else None,
+                last_active_at=m_stats[1] if m_stats else None,
+            )
+        )
+
+    return StudentRead(
+        id=student.id,
+        name=student.name,
+        created_at=student.created_at,
+        courses_with_activity=courses_act if courses_act else None,
+    )

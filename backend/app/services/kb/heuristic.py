@@ -15,7 +15,7 @@ from app.services.kb.schemas import (
 STOPWORDS = {
     "the", "a", "an", "and", "or", "in", "on", "at", "to", "for", "of", "with",
     "by", "from", "as", "is", "are", "was", "were", "it", "this", "that", "these",
-    "those", "then", "there", "when", "where", "which", "who", "all", "each",
+    "those", "then", "there", "when", "where", "which", "who", "what", "how", "why", "all", "each",
     "first", "second", "third", "part", "lecture", "slide", "page",
 }
 

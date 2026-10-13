@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, update
@@ -6,8 +7,16 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.db.session import get_db
+from app.models.mastery import Mastery
 from app.models.source import Chunk, Source
+from app.models.topic import Topic
 from app.schemas.citation import Citation
+from app.schemas.learner import (
+    DevAgeMasteryRequest,
+    DevAgeMasteryResponse,
+    DevForgettingSimulateItem,
+    DevForgettingSimulateRequest,
+)
 from app.schemas.tutor import DevAskRequest, DevAskResponse
 from app.schemas.assessment import (
     DevBktSimulateRequest,
@@ -16,6 +25,7 @@ from app.schemas.assessment import (
     DevGenerateQuestionsRequest,
     DevGenerateQuestionsResponse,
 )
+from app.services.learner.forgetting import retrievability
 from app.services.learner.mastery import bkt_update
 from app.schemas.dev import (
     EmbedTestRequest,
@@ -251,6 +261,7 @@ def dev_ask(
         db=db,
         course_id=payload.course_id,
         question=payload.question,
+        student_id=payload.student_id,
         topic_ids=payload.topic_ids,
         history=payload.history,
     )
@@ -413,4 +424,67 @@ def simulate_bkt(payload: DevBktSimulateRequest) -> DevBktSimulateResponse:
         current_p = p_after
 
     return DevBktSimulateResponse(trajectory=trajectory)
+
+
+@router.post("/age-mastery", response_model=DevAgeMasteryResponse)
+def dev_age_mastery(
+    payload: DevAgeMasteryRequest,
+    db: Session = Depends(get_db),
+) -> DevAgeMasteryResponse:
+    """Shift last_practiced_at back by N days for all student's mastery rows in the course."""
+    settings = get_settings()
+    if not settings.debug:
+        raise AppError(
+            "Dev endpoints are only available in debug mode",
+            code="forbidden",
+            status_code=403,
+        )
+
+    all_topics = db.scalars(select(Topic).where(Topic.course_id == payload.course_id)).all()
+    parent_ids = {t.parent_id for t in all_topics if t.parent_id is not None}
+    leaf_ids = [t.id for t in all_topics if t.id not in parent_ids]
+
+    if not leaf_ids:
+        return DevAgeMasteryResponse(rows_affected=0)
+
+    rows = db.scalars(
+        select(Mastery).where(
+            Mastery.student_id == payload.student_id,
+            Mastery.topic_id.in_(leaf_ids),
+            Mastery.last_practiced_at.is_not(None),
+        )
+    ).all()
+
+    for m in rows:
+        m.last_practiced_at = m.last_practiced_at - timedelta(days=payload.days)
+
+    db.commit()
+    return DevAgeMasteryResponse(rows_affected=len(rows))
+
+
+@router.post("/forgetting-simulate", response_model=List[DevForgettingSimulateItem])
+def dev_forgetting_simulate(
+    payload: DevForgettingSimulateRequest,
+) -> List[DevForgettingSimulateItem]:
+    """Pure simulation of retrievability and effective mastery decay across days."""
+    settings = get_settings()
+    results: List[DevForgettingSimulateItem] = []
+    p_init = settings.bkt_p_init
+    p_orig = float(payload.p_mastery)
+
+    for d in payload.days:
+        r = retrievability(float(d), payload.correct_count)
+        if p_orig > p_init:
+            eff = p_init + (p_orig - p_init) * r
+        else:
+            eff = p_orig
+        results.append(
+            DevForgettingSimulateItem(
+                days=float(d),
+                retrievability=round(r, 4),
+                effective_mastery=round(eff, 4),
+            )
+        )
+    return results
+
 
