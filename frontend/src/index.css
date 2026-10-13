@@ -1,1 +1,57 @@
 @import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Forest Green / Emerald Brand Accent Palette */
+  --color-brand-50: #f0f7f3;
+  --color-brand-100: #dceee2;
+  --color-brand-200: #b9dec7;
+  --color-brand-300: #8ec7a6;
+  --color-brand-400: #5fa882;
+  --color-brand-500: #3b8c63;
+  --color-brand-600: #2a734e;
+  --color-brand-700: #215c3f;
+  --color-brand-800: #1b4932;
+  --color-brand-900: #163c29;
+  --color-brand-950: #0a1f15;
+
+  /* Warm Neutral Surfaces (Light) */
+  --color-surface-canvas: #fbfaf7;
+  --color-surface-card: #ffffff;
+  --color-surface-muted: #f3f1ec;
+  --color-surface-border: #e5e2da;
+  --color-surface-text: #1b1e1c;
+  --color-surface-text-muted: #5e6660;
+
+  /* Deep Charcoal Surfaces (Dark) */
+  --color-dark-canvas: #121413;
+  --color-dark-card: #181c19;
+  --color-dark-muted: #212723;
+  --color-dark-border: #2a332d;
+  --color-dark-text: #f0f2ef;
+  --color-dark-text-muted: #95a098;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  :root.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-surface-canvas);
+    color: var(--color-surface-text);
+    min-height: 100vh;
+  }
+
+  .dark body {
+    background-color: var(--color-dark-canvas);
+    color: var(--color-dark-text);
+  }
+}
