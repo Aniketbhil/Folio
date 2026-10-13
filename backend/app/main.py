@@ -1,12 +1,16 @@
 import logging
+import time
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
 import app.models  # noqa: F401 - ensure all models are registered on Base.metadata
-from app.api.routes import assessments, chunks, courses, dev, health, kb, learner, sources, students, tutor
+from app.api.routes import assessments, chunks, courses, dev, health, kb, learner, meta, sources, students, tutor
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.db.session import Base, SessionLocal, engine, run_sqlite_migrations
@@ -21,6 +25,26 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("folio")
+
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        req_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+        start_time = time.perf_counter()
+
+        response = await call_next(request)
+
+        duration_ms = (time.perf_counter() - start_time) * 1000.0
+        response.headers["X-Request-ID"] = req_id
+
+        settings = get_settings()
+        log_msg = f"{request.method} {request.url.path} -> {response.status_code} ({duration_ms:.2f}ms) [request_id={req_id}]"
+        if duration_ms > settings.slow_request_ms:
+            logger.warning("SLOW REQUEST: %s", log_msg)
+        else:
+            logger.info(log_msg)
+
+        return response
 
 
 @asynccontextmanager
@@ -101,7 +125,8 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Register CORS
+    # Register Logging Middleware & CORS
+    app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.parsed_cors_origins,
@@ -118,6 +143,7 @@ def create_app() -> FastAPI:
 
     api_v1_router = APIRouter(prefix="/api/v1")
     api_v1_router.include_router(health.router)
+    api_v1_router.include_router(meta.router)
     api_v1_router.include_router(students.router)
     api_v1_router.include_router(courses.router)
     api_v1_router.include_router(sources.router)

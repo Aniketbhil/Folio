@@ -1,3 +1,4 @@
+import io
 import json
 from pathlib import Path
 import pymupdf
@@ -5,9 +6,32 @@ import pptx
 from pptx.util import Inches, Pt
 
 
+def _generate_figure_bytes() -> bytes:
+    """Generate a sample 300x300 PNG diagram (Force vs Acceleration) for caption testing."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(figsize=(3.2, 3.2), dpi=100)
+        ax.plot([0, 1, 2, 3], [0, 9.8, 19.6, 29.4], 'b-o', label="F = ma (m=9.8kg)")
+        ax.set_xlabel("Acceleration (m/s²)", fontsize=9)
+        ax.set_ylabel("Net Force (N)", fontsize=9)
+        ax.set_title("Newton's 2nd Law Experiment", fontsize=10)
+        ax.legend(fontsize=8)
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight")
+        plt.close(fig)
+        return buf.getvalue()
+    except Exception:
+        pix = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 250, 250), 0)
+        pix.set_rect(pix.irect, (180, 200, 240))
+        return pix.tobytes("png")
+
+
 def generate_all_samples(target_dir: Path) -> None:
     """Generate sample test files for PDF, PPTX, and transcript formats."""
     target_dir.mkdir(parents=True, exist_ok=True)
+    sample_fig_bytes = _generate_figure_bytes()
 
     # 1. sample.pdf (5 pages with TOC, headings, paragraphs)
     pdf_doc = pymupdf.open()
@@ -57,6 +81,9 @@ def generate_all_samples(target_dir: Path) -> None:
         rect = pymupdf.Rect(50, 110, 545, 750)
         page.insert_textbox(rect, body, fontsize=12, fontname="times-roman", color=(0, 0, 0))
 
+    if len(pdf_doc) > 2:
+        pdf_doc[2].insert_image(pymupdf.Rect(50, 280, 350, 580), stream=sample_fig_bytes)
+
     pdf_doc.set_toc(toc_entries)
     pdf_path = target_dir / "sample.pdf"
     pdf_doc.save(str(pdf_path))
@@ -104,6 +131,8 @@ def generate_all_samples(target_dir: Path) -> None:
     p3_2 = tf3.add_paragraph()
     p3_2.text = "• Standard SI unit of force is the Newton (1 N = 1 kg·m/s²)."
     s3.notes_slide.notes_text_frame.text = "Emphasize that acceleration is zero whenever net force equals zero."
+    # Add diagram picture to slide 3
+    s3.shapes.add_picture(io.BytesIO(sample_fig_bytes), Inches(5.2), Inches(2.0), width=Inches(4.0))
 
     # Slide 4: Table slide
     s4 = prs.slides.add_slide(blank_layout)

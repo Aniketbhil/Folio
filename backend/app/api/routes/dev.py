@@ -28,6 +28,8 @@ from app.schemas.assessment import (
 from app.services.learner.forgetting import retrievability
 from app.services.learner.mastery import bkt_update
 from app.schemas.dev import (
+    DevIntegrityDetails,
+    DevIntegrityResponse,
     EmbedTestRequest,
     EmbedTestResponse,
     LLMTestRequest,
@@ -486,5 +488,154 @@ def dev_forgetting_simulate(
             )
         )
     return results
+
+
+@router.get("/integrity-check", response_model=DevIntegrityResponse)
+def dev_integrity_check(
+    fix: bool = Query(default=False),
+    db: Session = Depends(get_db),
+) -> DevIntegrityResponse:
+    """Audit database and vector store for consistency issues, with optional repair."""
+    settings = get_settings()
+    if not settings.debug:
+        raise AppError("Dev endpoints are only available in debug mode", code="forbidden", status_code=403)
+
+    from app.models.assessment import Question
+    from app.models.course import Course
+    from app.models.topic import ChunkTopic, Topic
+    from app.services.llm import get_llm_client
+
+    vstore = get_vector_store()
+    llm = get_llm_client()
+
+    # 1. Orphan chunk vectors
+    chroma_chunk_ids_raw = vstore.chunks_collection.get(include=[])["ids"]
+    vector_chunk_ids = {int(x) for x in chroma_chunk_ids_raw if x.isdigit()}
+    db_chunk_ids = set(db.scalars(select(Chunk.id)).all())
+    orphan_vectors = sorted(list(vector_chunk_ids - db_chunk_ids))
+
+    # 2. Chunks not embedded
+    chunks_not_embedded = sorted(list(db.scalars(select(Chunk.id).where(Chunk.embedded == False)).all()))
+
+    # 3. Vectors missing for embedded chunks
+    db_embedded_ids = set(db.scalars(select(Chunk.id).where(Chunk.embedded == True)).all())
+    vectors_missing_for_embedded = sorted(list(db_embedded_ids - vector_chunk_ids))
+
+    # 4. Topics without chunks (leaf topics with 0 ChunkTopic rows)
+    all_topics = db.scalars(select(Topic)).all()
+    parent_ids = {t.parent_id for t in all_topics if t.parent_id is not None}
+    leaf_topic_ids = {t.id for t in all_topics if t.id not in parent_ids}
+    tagged_topic_ids = set(db.scalars(select(ChunkTopic.topic_id).distinct()).all())
+    topics_without_chunks = sorted(list(leaf_topic_ids - tagged_topic_ids))
+
+    # 5. Sources ready without chunks
+    ready_sources = db.scalars(select(Source).where(Source.status == "ready")).all()
+    sources_with_chunks = set(db.scalars(select(Chunk.source_id).distinct()).all())
+    sources_ready_without_chunks = sorted([s.id for s in ready_sources if s.id not in sources_with_chunks])
+
+    # 6. Questions without vectors
+    chroma_q_ids_raw = vstore.questions_collection.get(include=[])["ids"]
+    vector_q_ids = {int(x) for x in chroma_q_ids_raw if x.isdigit()}
+    db_q_ids = set(db.scalars(select(Question.id)).all())
+    questions_without_vectors = sorted(list(db_q_ids - vector_q_ids))
+
+    # 7. Stuck sources
+    stuck_sources = sorted(list(db.scalars(select(Source.id).where(Source.status.in_(["queued", "processing"]))).all()))
+
+    # 8. Stuck courses
+    stuck_courses = sorted(list(db.scalars(select(Course.id).where(Course.kb_status == "building")).all()))
+
+    issues = DevIntegrityDetails(
+        orphan_vectors=orphan_vectors,
+        chunks_not_embedded=chunks_not_embedded,
+        vectors_missing_for_embedded_chunks=vectors_missing_for_embedded,
+        topics_without_chunks=topics_without_chunks,
+        sources_ready_without_chunks=sources_ready_without_chunks,
+        questions_without_vectors=questions_without_vectors,
+        stuck_sources=stuck_sources,
+        stuck_courses=stuck_courses,
+    )
+
+    clean = not any([
+        orphan_vectors,
+        chunks_not_embedded,
+        vectors_missing_for_embedded,
+        topics_without_chunks,
+        sources_ready_without_chunks,
+        questions_without_vectors,
+        stuck_sources,
+        stuck_courses,
+    ])
+
+    fixed_info = None
+    if fix:
+        fixed_info = {}
+        # Delete orphan vectors
+        if orphan_vectors:
+            vstore.chunks_collection.delete(ids=[str(x) for x in orphan_vectors])
+            fixed_info["orphan_vectors_deleted"] = len(orphan_vectors)
+
+        # Re-embed missing chunks
+        to_reembed_ids = set(chunks_not_embedded + vectors_missing_for_embedded)
+        if to_reembed_ids:
+            reembed_chunks = list(db.scalars(select(Chunk).where(Chunk.id.in_(to_reembed_ids))).all())
+            if reembed_chunks:
+                texts = [(((c.section_title + "\n") if c.section_title else "") + c.text)[:2000] for c in reembed_chunks]
+                embeddings = llm.embed_texts(texts, task="document")
+                vstore.add_chunks([
+                    {
+                        "chunk_id": c.id,
+                        "course_id": c.course_id,
+                        "source_id": c.source_id,
+                        "text": c.text,
+                        "embedding": emb,
+                    }
+                    for c, emb in zip(reembed_chunks, embeddings)
+                ])
+                for c in reembed_chunks:
+                    c.embedded = True
+                db.commit()
+                fixed_info["chunks_reembedded"] = len(reembed_chunks)
+
+        # Re-add missing question vectors
+        if questions_without_vectors:
+            reembed_qs = list(db.scalars(select(Question).where(Question.id.in_(questions_without_vectors))).all())
+            if reembed_qs:
+                q_texts = [q.prompt for q in reembed_qs]
+                q_embs = llm.embed_texts(q_texts, task="document")
+                vstore.add_questions([
+                    {
+                        "question_id": q.id,
+                        "course_id": q.course_id,
+                        "topic_id": q.topic_id,
+                        "text": q.prompt,
+                        "embedding": emb,
+                        "student_id": q.assessment.student_id if q.assessment else None,
+                    }
+                    for q, emb in zip(reembed_qs, q_embs)
+                ])
+                fixed_info["questions_reembedded"] = len(reembed_qs)
+
+        # Mark stuck sources failed
+        if stuck_sources:
+            for s in db.scalars(select(Source).where(Source.id.in_(stuck_sources))).all():
+                s.status = "failed"
+                s.error = "Integrity check marked as failed"
+            db.commit()
+            fixed_info["stuck_sources_failed"] = len(stuck_sources)
+
+        # Mark stuck courses failed
+        if stuck_courses:
+            for c in db.scalars(select(Course).where(Course.id.in_(stuck_courses))).all():
+                c.kb_status = "failed"
+                c.kb_error = "Integrity check marked as failed"
+            db.commit()
+            fixed_info["stuck_courses_failed"] = len(stuck_courses)
+
+    return DevIntegrityResponse(
+        clean=clean,
+        issues=issues,
+        fixed=fixed_info,
+    )
 
 

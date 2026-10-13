@@ -16,3 +16,13 @@ dependencies = [
     "sqlalchemy>=2.1.4",
     "uvicorn[standard]>=0.54.0",
 ]
+
+[dependency-groups]
+eval = [
+    "datasets>=5.1.0",
+    "langchain-google-genai>=4.4.1",
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.4",
+    "ragas>=0.4.3",
+    "scipy>=1.18.1",
+]

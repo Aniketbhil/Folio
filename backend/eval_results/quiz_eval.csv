@@ -1,0 +1,42 @@
+index,topic_id,prompt,requested_difficulty,judged_difficulty,correct_answer,blind_solve_choice,blind_solve_agreed,verified
+1,175,"Which concept best completes the following statement from the study materials: 'Introduction to Newton's Laws
+Sir Isaac Newton published his three laws of motion in the M... relating to _____?'",medium,hard,D,D,True,True
+2,176,"Which concept best completes the following statement from the study materials: 'Inertia is the inherent resistance
+of any physical object to any change in its velocity.... relating to _____?'",medium,medium,C,C,True,True
+3,177,"Which concept best completes the following statement from the study materials: 'Second Law: Force and Acceleration
+The second law states that the acceleration of an objec... relating to _____?'",medium,medium,A,A,True,True
+4,177,"Which concept best completes the following statement from the study materials: 'Mathematically, it is expressed as F = ma, where
+force equals mass times acceleration.... relating to _____?'",medium,medium,C,C,True,True
+5,178,"Which concept best completes the following statement from the study materials: 'Third Law: Action and Reaction
+The third law states that for every action, there is an equ... relating to _____?'",medium,hard,D,D,True,True
+6,178,Which concept best completes the following statement from the study materials: '• Rocket engines push exhaust gases downward; gas accelerates rocket upward.... relating to _____?',medium,medium,A,A,True,True
+7,179,"Which concept best completes the following statement from the study materials: 'Applications of Classical Mechanics
+Newton's laws govern numerous modern technologies incl... relating to _____?'",medium,medium,C,C,True,True
+8,179,"Which concept best completes the following statement from the study materials: 'Despite relativistic refinements by
+Einstein, Newtonian mechanics remains exceptionally ac... relating to _____?'",medium,medium,C,C,True,True
+9,180,"Which concept best completes the following statement from the study materials: 'Newton's Laws of Motion
+
+Foundations of Classical Dynamics
+Physics 101 Lecture Series
+
+Spe... relating to _____?'",medium,hard,C,C,True,True
+10,180,"Identify the foundational principle illustrated by: 'Newton's Laws of Motion
+
+Foundations of Classical Dynamics
+Physics 101 Lecture Series
+
+Spe... involving _____.'",medium,medium,A,A,True,True
+11,181,"Which concept best completes the following statement from the study materials: 'First Law: Law of Inertia
+
+Key Concepts of Inertia:
+• An isolated body remains at rest or... relating to _____?'",medium,medium,D,D,True,True
+12,181,Which concept best completes the following statement from the study materials: '• Mass is the fundamental scalar measure of an object's inertia.... relating to _____?',medium,medium,D,D,True,True
+13,182,"Which concept best completes the following statement from the study materials: 'Second Law: Force and Mass (F=ma)
+
+Mathematical Formulation:
+• Net external force causes a... relating to _____?'",medium,hard,A,A,True,True
+14,182,Which concept best completes the following statement from the study materials: '• Standard SI unit of force is the Newton (1 N = 1 kg·m/s²).... relating to _____?',medium,medium,D,D,True,True
+15,183,"Which concept best completes the following statement from the study materials: 'Laws of Motion Summary Table
+
+Newtonian Law | Governing Equation / Principle
+First Law | I... relating to _____?'",medium,medium,B,B,True,True

@@ -1,0 +1,44 @@
+[
+  {
+    "id": "phys-fact-01",
+    "question": "When did Sir Isaac Newton publish his three laws of motion?",
+    "faithfulness": 0.65,
+    "relevancy": 0.92,
+    "context_preview": "Introduction to Newton's Laws\nSir Isaac Newton published his three laws of motion in the Mathematical Principles of Natural\nPhilosophy in 1687. These principles form the cornerstone of classical mecha"
+  },
+  {
+    "id": "phys-fact-02",
+    "question": "What is the formula for Newton's Second Law?",
+    "faithfulness": 0.4,
+    "relevancy": 0.92,
+    "context_preview": "An object at rest stays at rest because of inertia. Inertia resists any changes in velocity or direction. Now what happens when we apply an unbalanced force? Newton's second law states that force is d"
+  },
+  {
+    "id": "phys-fact-05",
+    "question": "What does Newton's Third Law state regarding forces?",
+    "faithfulness": 0.4,
+    "relevancy": 0.92,
+    "context_preview": "In this recorded lecture segment we introduce the foundations of dynamics. Newton's first law explains the law of inertia for objects at rest or in uniform motion.\n\nNewton's First Law describes the na"
+  },
+  {
+    "id": "phys-concept-03",
+    "question": "Why don't action and reaction force pairs cancel each other out?",
+    "faithfulness": 0.4,
+    "relevancy": 0.92,
+    "context_preview": "Third Law: Action and Reaction\nThe third law states that for every action, there is an equal and opposite reaction. When one body\nexerts a force on a second body, the second body simultaneously exerts"
+  },
+  {
+    "id": "phys-concept-04",
+    "question": "If net force on an object is zero, does it mean the object must be stationary?",
+    "faithfulness": 0.4,
+    "relevancy": 0.92,
+    "context_preview": "Newton's Second Law provides the quantitative bridge between kinematics and dynamics. It states that acceleration is directly proportional to net force and inversely proportional to inertia or mass.\n\n"
+  },
+  {
+    "id": "phys-concept-06",
+    "question": "How does Einstein's theory of relativity relate to Newtonian mechanics according to the lecture?",
+    "faithfulness": 0.4,
+    "relevancy": 0.92,
+    "context_preview": "Newton's Laws of Motion\n\nFoundations of Classical Dynamics\nPhysics 101 Lecture Series\n\nSpeaker notes: Welcome students to the dynamics and mechanics course module.\n\nIn this recorded lecture segment we"
+  }
+]

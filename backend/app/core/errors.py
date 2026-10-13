@@ -48,7 +48,18 @@ def validation_error_handler(request: Request, exc: RequestValidationError) -> J
 
 def http_error_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     """Handle standard Starlette / FastAPI HTTPExceptions."""
-    code = "not_found" if exc.status_code == 404 else "http_error"
+    if exc.status_code == 404:
+        code = "not_found"
+    elif exc.status_code == 405:
+        code = "method_not_allowed"
+    elif exc.status_code == 413:
+        code = "file_too_large"
+    elif exc.status_code == 415:
+        code = "unsupported_file_type"
+    elif exc.status_code == 422:
+        code = "validation_error"
+    else:
+        code = "http_error"
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": {"code": code, "message": str(exc.detail)}},

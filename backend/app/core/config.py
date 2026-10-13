@@ -75,6 +75,15 @@ class Settings(BaseSettings):
     tutor_personalize: bool = Field(default=True, description="Personalize tutor depth by student topic mastery")
     dash_recent_attempts: int = Field(default=10, description="Recent attempts displayed on student dashboard")
     study_session_min: int = Field(default=20, description="Study plan block length in minutes")
+    llm_timeout_sec: int = Field(default=60, description="LLM call timeout in seconds")
+    ingest_max_concurrent: int = Field(default=2, description="Max concurrent background ingestion jobs")
+    slow_request_ms: int = Field(default=2000, description="Threshold in ms to log slow requests as warning")
+    image_caption_enabled: bool = Field(default=False, description="Enable slide and figure image captioning")
+    image_caption_model: Optional[str] = Field(default=None, description="Model to use for image captioning (fallback llm_model)")
+    image_caption_max_per_source: int = Field(default=30, description="Max images captioned per source")
+    image_min_px: int = Field(default=150, description="Min width/height in px for captioning")
+    eval_judge_model: Optional[str] = Field(default=None, description="Model to use as evaluation judge (fallback llm_model)")
+    eval_out_dir: str = Field(default="./eval/results", description="Output directory for eval results")
 
     @property
     def parsed_cors_origins(self) -> List[str]:

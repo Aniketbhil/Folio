@@ -1,0 +1,47 @@
+================================================================================
+FOLIO EVALUATION REPORT — 2026-10-13T14:29:49.224590+00:00
+Course ID: 18 | Suite: all
+================================================================================
+
+--- RETRIEVAL & REFUSAL SUITE (N=18) ---
+Metric                    | Mean     | 95% CI             | Samples 
+-----------------------------------------------------------------
+hit_at_1                  | 0.6154   | [0.3827, 0.8462]   | 13      
+hit_at_3                  | 0.6154   | [0.3827, 0.8462]   | 13      
+hit_at_5                  | 0.7692   | [0.5385, 1.0000]   | 13      
+mrr                       | 0.6538   | [0.4038, 0.8654]   | 13      
+context_precision         | 0.3385   | [0.1692, 0.5231]   | 13      
+context_recall            | 0.7692   | [0.5385, 1.0000]   | 13      
+citation_accuracy         | 0.6154   | [0.3827, 0.8462]   | 13      
+refusal_precision         | 0.3333   | [0.3333, 0.3333]   | 18      
+refusal_recall            | 1.0000   | [1.0000, 1.0000]   | 18      
+refusal_f1                | 0.5000   | [0.5000, 0.5000]   | 18      
+
+--- TUTOR GENERATION SUITE (custom_judge, N=13) ---
+Metric                    | Mean     | Std      | 95% CI            
+-----------------------------------------------------------------
+faithfulness              | 0.6859   | 0.2441   | [0.5564, 0.8192]  
+answer_relevancy          | 0.9200   | 0.0000   | [0.9200, 0.9200]  
+context_precision         | 0.3077   | 0.3055   | [0.1538, 0.4872]  
+context_recall            | 0.8077   | 0.2433   | [0.6913, 0.9231]  
+Flagged for review (score < 0.70): 6
+
+--- QUIZ GENERATION SUITE (N=16) ---
+verifier_acceptance_rate           : 0.9375
+deduplication_drop_rate            : 0.0
+blind_solve_agreement              : 1.0
+Difficulty calibration matrix (requested -> judged):
+  easy     -> {'easy': 0, 'medium': 0, 'hard': 0}
+  medium   -> {'easy': 0, 'medium': 11, 'hard': 4}
+  hard     -> {'easy': 0, 'medium': 0, 'hard': 0}
+
+--- PERSONALIZATION 30-DAY SIMULATION (Arm A: Folio vs Arm B: Control) ---
+Overall Just-in-Time Review Rate: Arm A = 30.0%, Arm B = 20.4% (Gain: +47.3%)
+Archetype            | Arm A Day 30 Eff   | Arm B Day 30 Eff   | Arm A JIT% | Arm B JIT%
+-------------------------------------------------------------------------------------
+Crammer              | 0.4029             | 0.5870             | 20.7     % | 33.3     %
+Steady learner       | 0.9399             | 0.7733             | 32.9     % | 19.5     %
+Struggling learner   | 0.3982             | 0.4261             | 16.1     % | 15.5     %
+Fast learner         | 0.4498             | 0.5806             | 52.5     % | 21.6     %
+
+================================================================================

@@ -44,14 +44,21 @@ class LLMClient:
 
     def _call_with_backoff(self, operation: Any, *args: Any, **kwargs: Any) -> Any:
         """Execute a callable with exponential backoff on transient and rate limit errors (3 retries)."""
+        import concurrent.futures
         import time
 
         delays = [2.0, 4.0, 8.0]
         last_exc: Optional[Exception] = None
+        timeout_sec = self._settings.llm_timeout_sec
 
         for attempt in range(len(delays) + 1):
             try:
-                return operation(*args, **kwargs)
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(operation, *args, **kwargs)
+                    try:
+                        return future.result(timeout=timeout_sec)
+                    except concurrent.futures.TimeoutError as te:
+                        raise TimeoutError(f"LLM call timed out after {timeout_sec}s") from te
             except Exception as exc:
                 last_exc = exc
                 err_str = str(exc).lower()
@@ -74,6 +81,12 @@ class LLMClient:
 
         if last_exc:
             err_str = str(last_exc).lower()
+            if "timeout" in err_str or "timed out" in err_str:
+                raise AppError(
+                    message="The AI model took too long to respond. Please try again.",
+                    code="llm_timeout",
+                    status_code=502,
+                )
             if any(token in err_str for token in ["429", "quota", "rate limit", "resourceexhausted"]):
                 raise AppError(
                     message="Rate limit reached. Please retry in a minute.",
@@ -85,6 +98,40 @@ class LLMClient:
                 code="llm_error",
                 status_code=502,
             )
+
+    def caption_image(
+        self,
+        image_bytes: bytes,
+        mime: str,
+        model: Optional[str] = None,
+        context_hint: Optional[str] = None,
+    ) -> str:
+        """Caption figure/slide image using Gemini multimodal vision."""
+        if self._mock:
+            snip = (context_hint or "diagram").strip()[:40]
+            return f"(mock) Figure: diagram showing {snip}"
+
+        from google.genai import types
+
+        caption_model = model or self._settings.image_caption_model or self._settings.llm_model
+        prompt = (
+            "Provide a factual description of this figure/diagram in 2-4 sentences. "
+            "Transcribe visible text, labels, axes, and equations accurately without speculation. "
+            "If this image is purely decorative (e.g. background pattern, icon, logo, divider), "
+            "respond ONLY with the single word DECORATIVE."
+        )
+
+        def _call():
+            return self._client.models.generate_content(
+                model=caption_model,
+                contents=[
+                    types.Part.from_bytes(data=image_bytes, mime_type=mime),
+                    prompt,
+                ],
+            )
+
+        response = self._call_with_backoff(_call)
+        return (response.text or "").strip()
 
     def generate_text(
         self, prompt: str, system: Optional[str] = None, model: Optional[str] = None

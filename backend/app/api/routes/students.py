@@ -87,3 +87,57 @@ def get_student(
         created_at=student.created_at,
         courses_with_activity=courses_act if courses_act else None,
     )
+
+
+@router.delete("/{student_id}")
+def delete_student(
+    student_id: int,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Delete a student and cascade-remove all their conversations, assessments, and mastery records."""
+    from sqlalchemy import delete
+    from app.models.assessment import Assessment, Attempt, Question
+    from app.models.conversation import Conversation, Message
+    from app.models.mastery import Mastery, MasteryEvent
+    from app.services.vector_store import get_vector_store
+
+    student = db.get(Student, student_id)
+    if not student:
+        raise AppError(
+            message=f"Student with id {student_id} not found",
+            code="student_not_found",
+            status_code=404,
+        )
+
+    # 1. Delete vector store question embeddings for this student's assessments
+    assessments = list(
+        db.scalars(select(Assessment).where(Assessment.student_id == student_id)).all()
+    )
+    vstore = get_vector_store()
+    for a in assessments:
+        vstore.delete_questions_by_assessment(a.id)
+
+    # 2. Delete attempts, questions, assessments
+    db.execute(delete(Attempt).where(Attempt.student_id == student_id))
+    assessment_ids = [a.id for a in assessments]
+    if assessment_ids:
+        db.execute(delete(Question).where(Question.assessment_id.in_(assessment_ids)))
+    db.execute(delete(Assessment).where(Assessment.student_id == student_id))
+
+    # 3. Delete messages and conversations
+    conv_ids = list(
+        db.scalars(select(Conversation.id).where(Conversation.student_id == student_id)).all()
+    )
+    if conv_ids:
+        db.execute(delete(Message).where(Message.conversation_id.in_(conv_ids)))
+    db.execute(delete(Conversation).where(Conversation.student_id == student_id))
+
+    # 4. Delete mastery events and mastery records
+    db.execute(delete(MasteryEvent).where(MasteryEvent.student_id == student_id))
+    db.execute(delete(Mastery).where(Mastery.student_id == student_id))
+
+    # 5. Delete student
+    db.delete(student)
+    db.commit()
+
+    return {"deleted": True}

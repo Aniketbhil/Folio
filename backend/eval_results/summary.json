@@ -1,0 +1,285 @@
+{
+  "timestamp": "2026-10-13T14:29:49.224590+00:00",
+  "course_id": 18,
+  "suite": "all",
+  "suites_run": {
+    "retrieval": {
+      "sample_size": 18,
+      "supported_samples": 13,
+      "refusal_samples": 5,
+      "metrics": {
+        "hit_at_1": {
+          "mean": 0.6154,
+          "ci_95": [
+            0.3827,
+            0.8462
+          ]
+        },
+        "hit_at_3": {
+          "mean": 0.6154,
+          "ci_95": [
+            0.3827,
+            0.8462
+          ]
+        },
+        "hit_at_5": {
+          "mean": 0.7692,
+          "ci_95": [
+            0.5385,
+            1.0
+          ]
+        },
+        "mrr": {
+          "mean": 0.6538,
+          "ci_95": [
+            0.4038,
+            0.8654
+          ]
+        },
+        "context_precision": {
+          "mean": 0.3385,
+          "ci_95": [
+            0.1692,
+            0.5231
+          ]
+        },
+        "context_recall": {
+          "mean": 0.7692,
+          "ci_95": [
+            0.5385,
+            1.0
+          ]
+        },
+        "citation_accuracy": {
+          "mean": 0.6154,
+          "ci_95": [
+            0.3827,
+            0.8462
+          ]
+        },
+        "refusal_precision": {
+          "mean": 0.3333,
+          "ci_95": [
+            0.3333,
+            0.3333
+          ]
+        },
+        "refusal_recall": {
+          "mean": 1.0,
+          "ci_95": [
+            1.0,
+            1.0
+          ]
+        },
+        "refusal_f1": {
+          "mean": 0.5,
+          "ci_95": [
+            0.5,
+            0.5
+          ]
+        }
+      },
+      "artifacts": {
+        "threshold_sweep_csv": "eval_results/retrieval_threshold_sweep.csv",
+        "threshold_sweep_png": "eval_results/retrieval_threshold_sweep.png"
+      }
+    },
+    "generation": {
+      "evaluator": "custom_judge",
+      "sample_size": 13,
+      "flagged_count": 6,
+      "metrics": {
+        "faithfulness": {
+          "mean": 0.6859,
+          "std": 0.2441,
+          "ci_95": [
+            0.5564,
+            0.8192
+          ]
+        },
+        "answer_relevancy": {
+          "mean": 0.92,
+          "std": 0.0,
+          "ci_95": [
+            0.92,
+            0.92
+          ]
+        },
+        "context_precision": {
+          "mean": 0.3077,
+          "std": 0.3055,
+          "ci_95": [
+            0.1538,
+            0.4872
+          ]
+        },
+        "context_recall": {
+          "mean": 0.8077,
+          "std": 0.2433,
+          "ci_95": [
+            0.6913,
+            0.9231
+          ]
+        }
+      },
+      "artifacts": {
+        "flagged_json": "eval_results/tutor_flagged.json"
+      }
+    },
+    "quiz": {
+      "sample_size": 16,
+      "metrics": {
+        "verifier_acceptance_rate": 0.9375,
+        "deduplication_drop_rate": 0.0,
+        "blind_solve_agreement": 1.0
+      },
+      "difficulty_confusion_matrix": {
+        "easy": {
+          "easy": 0,
+          "medium": 0,
+          "hard": 0
+        },
+        "medium": {
+          "easy": 0,
+          "medium": 11,
+          "hard": 4
+        },
+        "hard": {
+          "easy": 0,
+          "medium": 0,
+          "hard": 0
+        }
+      },
+      "artifacts": {
+        "quiz_eval_csv": "eval_results/quiz_eval.csv"
+      }
+    },
+    "personalization": {
+      "metrics": {
+        "overall": {
+          "arm_a_jit_review_rate": 0.3005,
+          "arm_b_jit_review_rate": 0.204,
+          "jit_relative_gain": 0.473
+        },
+        "by_archetype": {
+          "Crammer": {
+            "day_30_effective_mastery": {
+              "arm_a_personalized": 0.4029,
+              "arm_b_control": 0.587
+            },
+            "just_in_time_review_rate": {
+              "arm_a_personalized": 0.2069,
+              "arm_b_control": 0.3333
+            },
+            "sessions_to_80_percent": {
+              "arm_a_personalized": null,
+              "arm_b_control": null
+            },
+            "review_counts": {
+              "arm_a": {
+                "just_in_time": 6,
+                "too_early": 0,
+                "too_late": 23,
+                "new": 3
+              },
+              "arm_b": {
+                "just_in_time": 8,
+                "too_early": 2,
+                "too_late": 14,
+                "new": 8
+              }
+            }
+          },
+          "Steady learner": {
+            "day_30_effective_mastery": {
+              "arm_a_personalized": 0.9399,
+              "arm_b_control": 0.7733
+            },
+            "just_in_time_review_rate": {
+              "arm_a_personalized": 0.3293,
+              "arm_b_control": 0.1951
+            },
+            "sessions_to_80_percent": {
+              "arm_a_personalized": 60,
+              "arm_b_control": null
+            },
+            "review_counts": {
+              "arm_a": {
+                "just_in_time": 27,
+                "too_early": 26,
+                "too_late": 29,
+                "new": 8
+              },
+              "arm_b": {
+                "just_in_time": 16,
+                "too_early": 30,
+                "too_late": 36,
+                "new": 8
+              }
+            }
+          },
+          "Struggling learner": {
+            "day_30_effective_mastery": {
+              "arm_a_personalized": 0.3982,
+              "arm_b_control": 0.4261
+            },
+            "just_in_time_review_rate": {
+              "arm_a_personalized": 0.1613,
+              "arm_b_control": 0.1552
+            },
+            "sessions_to_80_percent": {
+              "arm_a_personalized": null,
+              "arm_b_control": null
+            },
+            "review_counts": {
+              "arm_a": {
+                "just_in_time": 10,
+                "too_early": 0,
+                "too_late": 52,
+                "new": 4
+              },
+              "arm_b": {
+                "just_in_time": 9,
+                "too_early": 3,
+                "too_late": 46,
+                "new": 8
+              }
+            }
+          },
+          "Fast learner": {
+            "day_30_effective_mastery": {
+              "arm_a_personalized": 0.4498,
+              "arm_b_control": 0.5806
+            },
+            "just_in_time_review_rate": {
+              "arm_a_personalized": 0.525,
+              "arm_b_control": 0.2162
+            },
+            "sessions_to_80_percent": {
+              "arm_a_personalized": null,
+              "arm_b_control": null
+            },
+            "review_counts": {
+              "arm_a": {
+                "just_in_time": 21,
+                "too_early": 0,
+                "too_late": 19,
+                "new": 5
+              },
+              "arm_b": {
+                "just_in_time": 8,
+                "too_early": 1,
+                "too_late": 28,
+                "new": 8
+              }
+            }
+          }
+        }
+      },
+      "artifacts": {
+        "trajectories_png": "eval_results/personalization_trajectories.png",
+        "efficiency_png": "eval_results/personalization_efficiency.png"
+      }
+    }
+  }
+}

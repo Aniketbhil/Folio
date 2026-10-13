@@ -78,6 +78,8 @@ def create_conversation(
 def list_course_conversations(
     course_id: int,
     student_id: int = Query(..., description="Student ID to filter conversations"),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ) -> List[ConversationListItem]:
     """List conversations for a course and student, ordered newest first."""
@@ -105,6 +107,8 @@ def list_course_conversations(
                 Conversation.student_id == student_id,
             )
             .order_by(Conversation.created_at.desc(), Conversation.id.desc())
+            .limit(limit)
+            .offset(offset)
         ).all()
     )
 

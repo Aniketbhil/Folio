@@ -2,7 +2,7 @@ import hashlib
 from pathlib import Path
 import re
 from typing import List, Optional
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
@@ -41,7 +41,8 @@ MEDIA_TYPES = {
 
 def _sanitize_filename(filename: str) -> str:
     """Sanitize client-provided filename to prevent directory traversal or unsafe path chars."""
-    basename = Path(filename or "document").name
+    clean_name = (filename or "document").replace("\\", "/").split("/")[-1]
+    basename = Path(clean_name).name
     stem = Path(basename).stem
     ext = Path(basename).suffix.lower()
     clean_stem = re.sub(r"[^a-zA-Z0-9_\-]", "_", stem).strip("_")
@@ -97,6 +98,46 @@ async def upload_course_source(
         )
     if len(content) == 0:
         raise AppError("Uploaded file is empty", code="empty_file", status_code=400)
+
+    # 3b. Sniff content for magic bytes / structural validity
+    if ext == ".pdf":
+        if not content.startswith(b"%PDF"):
+            raise AppError(
+                "Invalid PDF file: content does not begin with %PDF magic header",
+                code="unsupported_file_type",
+                status_code=415,
+            )
+    elif ext == ".pptx":
+        import io
+        import zipfile
+        try:
+            with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                if "ppt/presentation.xml" not in zf.namelist():
+                    raise ValueError()
+        except Exception:
+            raise AppError(
+                "Invalid PPTX file: not a valid PowerPoint archive containing ppt/presentation.xml",
+                code="unsupported_file_type",
+                status_code=415,
+            )
+    elif ext == ".json":
+        import json
+        try:
+            json.loads(content.decode("utf-8"))
+        except Exception:
+            raise AppError(
+                "Invalid JSON file: content could not be parsed as JSON",
+                code="unsupported_file_type",
+                status_code=415,
+            )
+    elif ext == ".vtt":
+        text_head = content[:64].decode("utf-8", errors="ignore").lstrip("\ufeff \t\r\n")
+        if not text_head.startswith("WEBVTT"):
+            raise AppError(
+                "Invalid WebVTT file: header must start with WEBVTT",
+                code="unsupported_file_type",
+                status_code=415,
+            )
 
     # 4. Compute SHA256 and verify uniqueness within course
     file_sha256 = hashlib.sha256(content).hexdigest()
@@ -289,8 +330,8 @@ def get_source_file(
 @router.get("/sources/{source_id}/chunks", response_model=List[ChunkRead])
 def list_source_chunks(
     source_id: int,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ) -> List[ChunkRead]:
     """Inspect paginated chunks extracted for a specific source."""
@@ -306,8 +347,8 @@ def list_source_chunks(
         select(Chunk)
         .where(Chunk.source_id == source_id)
         .order_by(Chunk.chunk_index.asc())
-        .limit(max(1, min(limit, 200)))
-        .offset(max(0, offset))
+        .limit(limit)
+        .offset(offset)
     )
     chunks = list(db.scalars(stmt).all())
     return [ChunkRead.model_validate(c) for c in chunks]

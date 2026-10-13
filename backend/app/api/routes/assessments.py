@@ -218,6 +218,8 @@ def get_assessment_report(
 def list_course_assessments(
     course_id: int,
     student_id: int = Query(..., description="Student ID"),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ) -> List[AssessmentListItem]:
     """List assessments for a course and student, ordered newest first."""
@@ -245,6 +247,8 @@ def list_course_assessments(
                 Assessment.student_id == student_id,
             )
             .order_by(Assessment.created_at.desc(), Assessment.id.desc())
+            .limit(limit)
+            .offset(offset)
         ).all()
     )
 

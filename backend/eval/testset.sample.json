@@ -1,0 +1,184 @@
+{
+  "items": [
+    {
+      "id": "phys-fact-01",
+      "question": "When did Sir Isaac Newton publish his three laws of motion?",
+      "ground_truth_answer": "Sir Isaac Newton published his three laws of motion in the Mathematical Principles of Natural Philosophy in 1687.",
+      "expected_chunk_ids": [],
+      "expected_key_phrases": ["1687", "Mathematical Principles of Natural Philosophy"],
+      "expected_topic": "Introduction to Newton's Laws",
+      "question_type": "factual",
+      "expected_refusal": false
+    },
+    {
+      "id": "phys-fact-02",
+      "question": "What is the formula for Newton's Second Law?",
+      "ground_truth_answer": "The mathematical formula for Newton's Second Law is F = ma, where force equals mass times acceleration.",
+      "expected_chunk_ids": [],
+      "expected_key_phrases": ["F = ma", "mass times acceleration"],
+      "expected_topic": "Second Law: Force and Acceleration",
+      "question_type": "factual",
+      "expected_refusal": false
+    },
+    {
+      "id": "phys-fact-03",
+      "question": "What is the SI unit of force and its definition?",
+      "ground_truth_answer": "The standard SI unit of force is the Newton (N), defined as 1 N = 1 kg·m/s².",
+      "expected_chunk_ids": [],
+      "expected_key_phrases": ["Newton", "1 N = 1 kg·m/s²"],
+      "expected_topic": "Second Law: Force and Acceleration",
+      "question_type": "factual",
+      "expected_refusal": false
+    },
+    {
+      "id": "phys-fact-04",
+      "question": "What does Newton's First Law state?",
+      "ground_truth_answer": "Newton's First Law states that every object continues in a state of rest or uniform motion in a straight line unless compelled to change by an external net force.",
+      "expected_chunk_ids": [],
+      "expected_key_phrases": ["state of rest", "uniform motion", "inertia"],
+      "expected_topic": "First Law: The Principle of Inertia",
+      "question_type": "factual",
+      "expected_refusal": false
+    },
+    {
+      "id": "phys-fact-05",
+      "question": "What does Newton's Third Law state regarding forces?",
+      "ground_truth_answer": "Newton's Third Law states that for every action, there is an equal and opposite reaction.",
+      "expected_chunk_ids": [],
+      "expected_key_phrases": ["equal and opposite reaction", "action", "pairs"],
+      "expected_topic": "Third Law: Action and Reaction",
+      "question_type": "factual",
+      "expected_refusal": false
+    },
+    {
+      "id": "phys-fact-06",
+      "question": "What modern technologies rely on classical mechanics applications?",
+      "ground_truth_answer": "Newton's laws govern vehicle safety systems, aerospace rocketry, satellite orbits, and biomechanics in athletic sports.",
+      "expected_chunk_ids": [],
+      "expected_key_phrases": ["aerospace rocketry", "satellite orbits", "vehicle safety"],
+      "expected_topic": "Applications of Classical Mechanics",
+      "question_type": "factual",
+      "expected_refusal": false
+    },
+    {
+      "id": "phys-fact-07",
+      "question": "What is inertia defined as in the course notes?",
+      "ground_truth_answer": "Inertia is the inherent resistance of any physical object to any change in its velocity or state of motion.",
+      "expected_chunk_ids": [],
+      "expected_key_phrases": ["inherent resistance", "change in its velocity"],
+      "expected_topic": "First Law: The Principle of Inertia",
+      "question_type": "factual",
+      "expected_refusal": false
+    },
+    {
+      "id": "phys-concept-01",
+      "question": "Why does an object in outer space continue to move even without any engine firing?",
+      "ground_truth_answer": "Because of inertia (Newton's First Law), an object maintains constant velocity in the absence of net external forces like friction or gravity.",
+      "expected_chunk_ids": [],
+      "expected_key_phrases": ["inertia", "constant velocity", "net force"],
+      "expected_topic": "First Law: The Principle of Inertia",
+      "question_type": "conceptual",
+      "expected_refusal": false
+    },
+    {
+      "id": "phys-concept-02",
+      "question": "How do rocket engines accelerate forward in the vacuum of space?",
+      "ground_truth_answer": "Rocket engines push exhaust gases backward, and according to Newton's Third Law, the exhaust gases exert an equal and opposite forward reaction force on the rocket.",
+      "expected_chunk_ids": [],
+      "expected_key_phrases": ["exhaust gases", "reaction", "Third Law"],
+      "expected_topic": "Third Law: Action and Reaction",
+      "question_type": "conceptual",
+      "expected_refusal": false
+    },
+    {
+      "id": "phys-concept-03",
+      "question": "Why don't action and reaction force pairs cancel each other out?",
+      "ground_truth_answer": "Action and reaction forces do not cancel out because they act simultaneously on two distinct, separate bodies.",
+      "expected_chunk_ids": [],
+      "expected_key_phrases": ["distinct bodies", "pairs", "separate"],
+      "expected_topic": "Third Law: Action and Reaction",
+      "question_type": "conceptual",
+      "expected_refusal": false
+    },
+    {
+      "id": "phys-concept-04",
+      "question": "If net force on an object is zero, does it mean the object must be stationary?",
+      "ground_truth_answer": "No. When net force is zero, acceleration is zero, which means the object can either be at rest or moving with constant velocity in a straight line.",
+      "expected_chunk_ids": [],
+      "expected_key_phrases": ["acceleration is zero", "constant velocity", "rest"],
+      "expected_topic": "Second Law: Force and Acceleration",
+      "question_type": "conceptual",
+      "expected_refusal": false
+    },
+    {
+      "id": "phys-concept-05",
+      "question": "How is mass related to inertia?",
+      "ground_truth_answer": "Mass is the fundamental scalar measure of an object's inertia; greater mass requires more net force to produce the same acceleration.",
+      "expected_chunk_ids": [],
+      "expected_key_phrases": ["scalar measure", "inertia", "mass"],
+      "expected_topic": "First Law: The Principle of Inertia",
+      "question_type": "conceptual",
+      "expected_refusal": false
+    },
+    {
+      "id": "phys-concept-06",
+      "question": "How does Einstein's theory of relativity relate to Newtonian mechanics according to the lecture?",
+      "ground_truth_answer": "Despite relativistic refinements introduced by Einstein, Newtonian mechanics remains exceptionally accurate for everyday speeds.",
+      "expected_chunk_ids": [],
+      "expected_key_phrases": ["relativistic refinements", "Einstein", "everyday speeds"],
+      "expected_topic": "Applications of Classical Mechanics",
+      "question_type": "conceptual",
+      "expected_refusal": false
+    },
+    {
+      "id": "phys-adver-01",
+      "question": "What ingredients and baking temperature are required for chocolate chip cookies?",
+      "ground_truth_answer": "",
+      "expected_chunk_ids": [],
+      "expected_key_phrases": [],
+      "expected_topic": "Out of Scope",
+      "question_type": "adversarial_out_of_scope",
+      "expected_refusal": true
+    },
+    {
+      "id": "phys-adver-02",
+      "question": "How does the Python asyncio event loop schedule coroutines across worker threads?",
+      "ground_truth_answer": "",
+      "expected_chunk_ids": [],
+      "expected_key_phrases": [],
+      "expected_topic": "Out of Scope",
+      "question_type": "adversarial_out_of_scope",
+      "expected_refusal": true
+    },
+    {
+      "id": "phys-adver-03",
+      "question": "What is the capital city and official currency of France?",
+      "ground_truth_answer": "",
+      "expected_chunk_ids": [],
+      "expected_key_phrases": [],
+      "expected_topic": "Out of Scope",
+      "question_type": "adversarial_out_of_scope",
+      "expected_refusal": true
+    },
+    {
+      "id": "phys-adver-04",
+      "question": "What does Newton's 1687 treatise state regarding the quantum tunneling probability of electrons?",
+      "ground_truth_answer": "",
+      "expected_chunk_ids": [],
+      "expected_key_phrases": [],
+      "expected_topic": "Unsupported",
+      "question_type": "adversarial_unsupported",
+      "expected_refusal": true
+    },
+    {
+      "id": "phys-adver-05",
+      "question": "Where does the syllabus explain black hole Hawking radiation and thermodynamics?",
+      "ground_truth_answer": "",
+      "expected_chunk_ids": [],
+      "expected_key_phrases": [],
+      "expected_topic": "Unsupported",
+      "question_type": "adversarial_unsupported",
+      "expected_refusal": true
+    }
+  ]
+}

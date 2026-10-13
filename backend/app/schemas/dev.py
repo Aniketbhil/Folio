@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any, List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -30,3 +30,20 @@ class VectorTestResponse(BaseModel):
     success: bool
     queried_chunks: List[VectorTestResultItem]
     cleaned_up: bool
+
+
+class DevIntegrityDetails(BaseModel):
+    orphan_vectors: List[int]
+    chunks_not_embedded: List[int]
+    vectors_missing_for_embedded_chunks: List[int]
+    topics_without_chunks: List[int]
+    sources_ready_without_chunks: List[int]
+    questions_without_vectors: List[int]
+    stuck_sources: List[int]
+    stuck_courses: List[int]
+
+
+class DevIntegrityResponse(BaseModel):
+    clean: bool
+    issues: DevIntegrityDetails
+    fixed: Optional[dict] = None

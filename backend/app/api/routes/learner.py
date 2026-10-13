@@ -174,6 +174,7 @@ def get_topic_mastery_history(
     course_id: int,
     topic_id: int,
     limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ) -> TopicMasteryHistoryResponse:
     """Retrieve chronological mastery change history for a single leaf topic."""
@@ -202,6 +203,7 @@ def get_topic_mastery_history(
         )
         .order_by(MasteryEvent.created_at.asc(), MasteryEvent.id.asc())
         .limit(limit)
+        .offset(offset)
     ).all()
 
     return TopicMasteryHistoryResponse(
