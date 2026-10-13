@@ -1,0 +1,103 @@
+import logging
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import AsyncGenerator
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+import app.models  # noqa: F401 - ensure all models are registered on Base.metadata
+from app.api.routes import courses, dev, health, students
+from app.core.config import get_settings
+from app.core.errors import register_error_handlers
+from app.db.session import Base, engine
+from app.services.llm import get_llm_client
+from app.services.vector_store import get_vector_store
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("folio")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Startup and shutdown lifecycle handler for the application."""
+    settings = get_settings()
+
+    # 1. Ensure required storage directories exist
+    upload_path = Path(settings.upload_dir)
+    upload_path.mkdir(parents=True, exist_ok=True)
+
+    chroma_path = Path(settings.chroma_dir)
+    chroma_path.mkdir(parents=True, exist_ok=True)
+
+    if settings.database_url.startswith("sqlite"):
+        db_path = settings.database_url.replace("sqlite:///", "").replace("sqlite://", "")
+        if db_path and not db_path.startswith(":memory:"):
+            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+
+    # 2. Create database tables
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database schema initialized successfully.")
+
+    # 3. Pre-warm services
+    llm = get_llm_client()
+    vstore = get_vector_store()
+    logger.info(
+        "Services initialized (LLM mock: %s, Chroma collections: %d, %d)",
+        settings.llm_mock,
+        vstore.chunks_collection.count(),
+        vstore.questions_collection.count(),
+    )
+
+    yield
+
+    logger.info("Folio backend shutdown complete.")
+
+
+def create_app() -> FastAPI:
+    """Application factory configuring routes, CORS, and error handlers."""
+    settings = get_settings()
+
+    app = FastAPI(
+        title="Folio Backend",
+        description="Source-grounded AI study companion API",
+        version="0.1.0",
+        lifespan=lifespan,
+    )
+
+    # Register CORS
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.parsed_cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Register global error handlers
+    register_error_handlers(app)
+
+    # Include API routes under /api/v1 prefix
+    from fastapi import APIRouter
+
+    api_v1_router = APIRouter(prefix="/api/v1")
+    api_v1_router.include_router(health.router)
+    api_v1_router.include_router(students.router)
+    api_v1_router.include_router(courses.router)
+
+    if settings.debug:
+        api_v1_router.include_router(dev.router)
+        # Also mount on /dev for direct convenience
+        app.include_router(dev.router)
+
+    app.include_router(api_v1_router)
+
+    # Also mount health directly on /health for root health checkers
+    app.include_router(health.router)
+
+    return app
+
+
+app = create_app()
