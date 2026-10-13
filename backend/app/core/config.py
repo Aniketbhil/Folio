@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     chunk_target_tokens: int = Field(default=400, description="Target token count per chunk")
     chunk_overlap_tokens: int = Field(default=50, description="Overlap token count between chunks")
     transcript_window_sec: int = Field(default=60, description="Target duration window in seconds for transcript chunks")
+    auto_build_kb: bool = Field(default=True, description="Automatically build knowledge base on ingestion completion")
+    kb_batch_tokens: int = Field(default=6000, description="Approximate token budget per KB LLM batch")
+    kb_max_toplevel: int = Field(default=10, description="Maximum top-level topics in generated taxonomy")
+    kb_max_subtopics: int = Field(default=5, description="Maximum subtopics per top-level topic")
+    snippet_chars: int = Field(default=300, description="Character limit for citation snippets")
 
     @property
     def parsed_cors_origins(self) -> List[str]:

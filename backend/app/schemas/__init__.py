@@ -16,6 +16,29 @@ from app.schemas.dev import (
     VectorTestResponse,
 )
 from app.schemas.source import ChunkRead, SourceDeleteResponse, SourceRead
+from app.schemas.citation import Citation
+from app.schemas.chunk import (
+    ChunkViewerChunk,
+    ChunkViewerSource,
+    ChunkViewerInfo,
+    ChunkNeighbor,
+    ChunkTopicBrief,
+    ChunkConceptBrief,
+    ChunkViewerResponse,
+)
+from app.schemas.kb import (
+    KBStatusCounts,
+    KBStatusResponse,
+    KBRebuildResponse,
+    TopicTreeNode,
+    ConceptItem,
+    TopicBrief,
+    ConceptBrief,
+    TopicDetailResponse,
+    GraphNode,
+    GraphEdge,
+    GraphResponse,
+)
 
 __all__ = [
     "ErrorDetail",
@@ -37,4 +60,23 @@ __all__ = [
     "SourceRead",
     "ChunkRead",
     "SourceDeleteResponse",
+    "Citation",
+    "ChunkViewerChunk",
+    "ChunkViewerSource",
+    "ChunkViewerInfo",
+    "ChunkNeighbor",
+    "ChunkTopicBrief",
+    "ChunkConceptBrief",
+    "ChunkViewerResponse",
+    "KBStatusCounts",
+    "KBStatusResponse",
+    "KBRebuildResponse",
+    "TopicTreeNode",
+    "ConceptItem",
+    "TopicBrief",
+    "ConceptBrief",
+    "TopicDetailResponse",
+    "GraphNode",
+    "GraphEdge",
+    "GraphResponse",
 ]

@@ -78,6 +78,8 @@ def _window_cues(
     if not cues:
         return []
 
+    window_sec = float(window_sec)
+    max_tokens = int(max_tokens)
     units: List[ParsedUnit] = []
     idx = 0
     total = len(cues)

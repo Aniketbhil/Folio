@@ -6,10 +6,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import app.models  # noqa: F401 - ensure all models are registered on Base.metadata
-from app.api.routes import courses, dev, health, sources, students
+from app.api.routes import chunks, courses, dev, health, kb, sources, students
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
-from app.db.session import Base, SessionLocal, engine
+from app.db.session import Base, SessionLocal, engine, run_sqlite_migrations
+from app.models.course import Course
 from app.models.source import Source
 from app.services.llm import get_llm_client
 from app.services.vector_store import get_vector_store
@@ -39,11 +40,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         if db_path and not db_path.startswith(":memory:"):
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
-    # 2. Create database tables
+    # 2. Create database tables and apply sqlite migrations
     Base.metadata.create_all(bind=engine)
+    run_sqlite_migrations(engine)
     logger.info("Database schema initialized successfully.")
 
-    # 3. Startup recovery: mark interrupted sources as failed
+    # 3. Startup recovery: mark interrupted sources and building courses as failed
     try:
         with SessionLocal() as db:
             interrupted_sources = list(
@@ -55,8 +57,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 src.status = "failed"
                 src.error = "Interrupted by a server restart. Use retry."
             if interrupted_sources:
-                db.commit()
                 logger.info("Marked %d interrupted source(s) as failed.", len(interrupted_sources))
+
+            building_courses = list(
+                db.scalars(
+                    select(Course).where(Course.kb_status == "building")
+                ).all()
+            )
+            for crs in building_courses:
+                crs.kb_status = "failed"
+                crs.kb_error = "Interrupted by a server restart. Use rebuild."
+            if building_courses:
+                logger.info("Marked %d interrupted building course(s) as failed.", len(building_courses))
+
+            if interrupted_sources or building_courses:
+                db.commit()
     except Exception as exc:
         logger.warning("Failed during startup recovery check: %s", exc)
 
@@ -106,6 +121,8 @@ def create_app() -> FastAPI:
     api_v1_router.include_router(students.router)
     api_v1_router.include_router(courses.router)
     api_v1_router.include_router(sources.router)
+    api_v1_router.include_router(kb.router)
+    api_v1_router.include_router(chunks.router)
 
     if settings.debug:
         api_v1_router.include_router(dev.router)

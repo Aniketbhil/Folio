@@ -32,6 +32,32 @@ class Base(DeclarativeBase):
     pass
 
 
+from sqlalchemy import text
+
+
+def ensure_sqlite_column(engine_instance, table_name: str, column_name: str, column_type_sql: str) -> None:
+    """Ensure a column exists on a table in SQLite; if missing, execute ALTER TABLE ADD COLUMN."""
+    with engine_instance.connect() as conn:
+        res = conn.execute(text(f"PRAGMA table_info({table_name})")).fetchall()
+        existing_cols = {row[1] for row in res}
+        if existing_cols and column_name not in existing_cols:
+            conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type_sql}"))
+            conn.commit()
+
+
+def run_sqlite_migrations(engine_instance=engine) -> None:
+    """Run lightweight schema migrations for existing SQLite databases."""
+    try:
+        ensure_sqlite_column(engine_instance, "courses", "kb_error", "TEXT")
+        ensure_sqlite_column(engine_instance, "courses", "kb_built_at", "DATETIME")
+    except Exception:
+        pass
+
+
+if settings.database_url.startswith("sqlite"):
+    run_sqlite_migrations(engine)
+
+
 def get_db() -> Generator[Session, None, None]:
     """Dependency that yields a database session and handles closure."""
     db = SessionLocal()
@@ -39,3 +65,4 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+

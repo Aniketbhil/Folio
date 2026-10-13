@@ -76,6 +76,14 @@ def get_course_detail(
         )
         or 0
     )
+    embedded_cnt = (
+        db.scalar(
+            select(func.count(Chunk.id)).where(
+                Chunk.course_id == course_id, Chunk.embedded == True
+            )
+        )
+        or 0
+    )
     topics_cnt = (
         db.scalar(
             select(func.count(Topic.id)).where(Topic.course_id == course_id)
@@ -92,6 +100,7 @@ def get_course_detail(
     counts = CourseCounts(
         sources=sources_cnt,
         chunks=chunks_cnt,
+        embedded_chunks=embedded_cnt,
         topics=topics_cnt,
         concepts=concepts_cnt,
     )
@@ -101,6 +110,8 @@ def get_course_detail(
         name=course.name,
         description=course.description,
         kb_status=course.kb_status,
+        kb_error=course.kb_error,
+        kb_built_at=course.kb_built_at,
         created_at=course.created_at,
         counts=counts,
     )

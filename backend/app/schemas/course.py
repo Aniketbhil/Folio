@@ -11,6 +11,7 @@ class CourseCreate(BaseModel):
 class CourseCounts(BaseModel):
     sources: int = 0
     chunks: int = 0
+    embedded_chunks: int = 0
     topics: int = 0
     concepts: int = 0
 
@@ -22,6 +23,8 @@ class CourseRead(BaseModel):
     name: str
     description: Optional[str] = None
     kb_status: str
+    kb_error: Optional[str] = None
+    kb_built_at: Optional[datetime] = None
     created_at: datetime
 
 
@@ -32,6 +35,8 @@ class CourseDetailRead(BaseModel):
     name: str
     description: Optional[str] = None
     kb_status: str
+    kb_error: Optional[str] = None
+    kb_built_at: Optional[datetime] = None
     created_at: datetime
     counts: CourseCounts
 

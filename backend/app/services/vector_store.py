@@ -11,6 +11,9 @@ from app.core.config import Settings, get_settings
 logger = logging.getLogger(__name__)
 
 
+from app.core.errors import AppError
+
+
 class VectorStore:
     """Wrapper for persistent Chroma vector database with cosine distance."""
 
@@ -45,19 +48,52 @@ class VectorStore:
         """Accessor for questions collection."""
         return self._questions_col
 
-    def add_chunks(self, items: List[Dict[str, Any]]) -> None:
-        """Add or update multiple text chunks in the folio_chunks collection.
+    def reset_collections(self) -> Dict[str, Any]:
+        """Drop and recreate both Chroma collections."""
+        try:
+            self._client.delete_collection("folio_chunks")
+        except Exception:
+            pass
+        try:
+            self._client.delete_collection("folio_questions")
+        except Exception:
+            pass
 
-        Each item must contain:
-        - chunk_id: int
-        - course_id: int
-        - source_id: int
-        - text: str
-        - embedding: list[float]
-        Optional: topic_id, etc.
-        """
+        self._chunks_col = self._client.create_collection(
+            name="folio_chunks",
+            metadata={"hnsw:space": "cosine"},
+        )
+        self._questions_col = self._client.create_collection(
+            name="folio_questions",
+            metadata={"hnsw:space": "cosine"},
+        )
+        logger.info("Chroma collections reset successfully.")
+        return {"folio_chunks": 0, "folio_questions": 0}
+
+    def add_chunks(self, items: List[Dict[str, Any]]) -> None:
+        """Add or update multiple text chunks in the folio_chunks collection with dimension safety."""
         if not items:
             return
+
+        dim = len(items[0]["embedding"])
+        current_meta = self._chunks_col.metadata or {}
+        stored_dim = current_meta.get("embedding_dim")
+
+        if stored_dim is not None:
+            if int(stored_dim) != dim:
+                raise AppError(
+                    message="Vector store was created with a different embedding size (mock vs live). Call POST /api/v1/dev/vector-reset and re-run ingestion.",
+                    code="embedding_dim_mismatch",
+                    status_code=400,
+                )
+        else:
+            # First insert: record dimension
+            try:
+                meta_update = {k: v for k, v in current_meta.items() if k != "hnsw:space"}
+                meta_update["embedding_dim"] = dim
+                self._chunks_col.modify(metadata=meta_update)
+            except Exception as exc:
+                logger.warning("Could not set embedding_dim in collection metadata: %s", exc)
 
         ids: List[str] = []
         embeddings: List[List[float]] = []
@@ -66,7 +102,7 @@ class VectorStore:
 
         for item in items:
             chunk_id = int(item["chunk_id"])
-            ids.append(f"chunk_{chunk_id}")
+            ids.append(str(chunk_id))
             embeddings.append(item["embedding"])
             documents.append(item["text"])
 
@@ -79,12 +115,22 @@ class VectorStore:
                 meta["topic_id"] = int(item["topic_id"])
             metadatas.append(meta)
 
-        self._chunks_col.upsert(
-            ids=ids,
-            embeddings=embeddings,
-            documents=documents,
-            metadatas=metadatas,
-        )
+        try:
+            self._chunks_col.upsert(
+                ids=ids,
+                embeddings=embeddings,
+                documents=documents,
+                metadatas=metadatas,
+            )
+        except Exception as exc:
+            err_str = str(exc).lower()
+            if "dimension" in err_str:
+                raise AppError(
+                    message="Vector store was created with a different embedding size (mock vs live). Call POST /api/v1/dev/vector-reset and re-run ingestion.",
+                    code="embedding_dim_mismatch",
+                    status_code=400,
+                )
+            raise
 
     def query_chunks(
         self,
@@ -92,36 +138,52 @@ class VectorStore:
         query_embedding: List[float],
         top_k: int = 5,
         topic_ids: Optional[List[int]] = None,
+        chunk_ids: Optional[List[int]] = None,
     ) -> List[Dict[str, Any]]:
-        """Query top-k most similar chunks for a specific course, optionally filtered by topics."""
+        """Query top-k most similar chunks for a course, filtered by course, topics, and/or chunk_ids."""
         total = self._chunks_col.count()
         if total == 0:
             return []
 
+        # If chunk_ids filter requested but empty, no chunks match
+        if chunk_ids is not None and len(chunk_ids) == 0:
+            return []
+
+        filter_conditions: List[Dict[str, Any]] = [{"course_id": course_id}]
+
+        if chunk_ids is not None:
+            if len(chunk_ids) == 1:
+                filter_conditions.append({"chunk_id": chunk_ids[0]})
+            else:
+                filter_conditions.append({"chunk_id": {"$in": chunk_ids}})
+
         if topic_ids and len(topic_ids) > 0:
             if len(topic_ids) == 1:
-                where_filter: Dict[str, Any] = {
-                    "$and": [
-                        {"course_id": course_id},
-                        {"topic_id": topic_ids[0]},
-                    ]
-                }
+                filter_conditions.append({"topic_id": topic_ids[0]})
             else:
-                where_filter = {
-                    "$and": [
-                        {"course_id": course_id},
-                        {"topic_id": {"$in": topic_ids}},
-                    ]
-                }
+                filter_conditions.append({"topic_id": {"$in": topic_ids}})
+
+        if len(filter_conditions) == 1:
+            where_filter: Dict[str, Any] = filter_conditions[0]
         else:
-            where_filter = {"course_id": course_id}
+            where_filter = {"$and": filter_conditions}
 
         actual_k = min(top_k, total)
-        results = self._chunks_col.query(
-            query_embeddings=[query_embedding],
-            n_results=actual_k,
-            where=where_filter,
-        )
+        try:
+            results = self._chunks_col.query(
+                query_embeddings=[query_embedding],
+                n_results=actual_k,
+                where=where_filter,
+            )
+        except Exception as exc:
+            err_str = str(exc).lower()
+            if "dimension" in err_str:
+                raise AppError(
+                    message="Vector store was created with a different embedding size (mock vs live). Call POST /api/v1/dev/vector-reset and re-run ingestion.",
+                    code="embedding_dim_mismatch",
+                    status_code=400,
+                )
+            raise
 
         output: List[Dict[str, Any]] = []
         if not results or not results.get("ids") or not results["ids"][0]:

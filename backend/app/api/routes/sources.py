@@ -4,7 +4,7 @@ import re
 from typing import List, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile, status
 from fastapi.responses import FileResponse
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -12,8 +12,10 @@ from app.core.errors import AppError
 from app.db.session import get_db
 from app.models.course import Course
 from app.models.source import Chunk, Source
+from app.models.topic import ChunkConcept, ChunkTopic, Concept, Topic, TopicPrereq
 from app.schemas.source import ChunkRead, SourceDeleteResponse, SourceRead
 from app.services.ingestion.pipeline import run_ingestion
+from app.services.kb.service import get_kb_service
 from app.services.vector_store import get_vector_store
 
 router = APIRouter(tags=["sources"])
@@ -58,6 +60,7 @@ async def upload_course_source(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     title: Optional[str] = Form(None),
+    media_url: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ) -> SourceRead:
     """Upload and schedule ingestion for a course document (PDF, PPTX, or transcript)."""
@@ -108,6 +111,19 @@ async def upload_course_source(
                 status_code=409,
             )
 
+    # Validate media_url if provided
+    source_meta: dict = {"sha256": file_sha256}
+    if media_url is not None:
+        trimmed_url = media_url.strip()
+        if trimmed_url:
+            if not (trimmed_url.startswith("http://") or trimmed_url.startswith("https://")):
+                raise AppError(
+                    "media_url must start with http:// or https://",
+                    code="invalid_media_url",
+                    status_code=400,
+                )
+            source_meta["media_url"] = trimmed_url
+
     # 5. Sanitize and prepare destination path
     sanitized_name = _sanitize_filename(raw_filename)
     resolved_title = title.strip() if title and title.strip() else Path(sanitized_name).stem
@@ -122,7 +138,7 @@ async def upload_course_source(
         status="queued",
         progress=0,
         num_units=0,
-        meta={"sha256": file_sha256},
+        meta=source_meta,
     )
     db.add(source)
     db.commit()
@@ -351,6 +367,7 @@ def retry_source_ingestion(
 @router.delete("/sources/{source_id}", response_model=SourceDeleteResponse)
 def delete_source(
     source_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ) -> SourceDeleteResponse:
     """Delete a source file, vector database entries, and database chunks."""
@@ -361,6 +378,8 @@ def delete_source(
             code="source_not_found",
             status_code=404,
         )
+
+    course_id = source.course_id
 
     # 1. Delete physical file from storage
     if source.file_path:
@@ -381,5 +400,41 @@ def delete_source(
     # 3. Delete database record (chunks cascade delete automatically)
     db.delete(source)
     db.commit()
+
+    # 4. KB trigger / cleanup
+    remaining_chunks = (
+        db.scalar(select(func.count(Chunk.id)).where(Chunk.course_id == course_id))
+        or 0
+    )
+
+    if remaining_chunks > 0:
+        background_tasks.add_task(get_kb_service().request_build, course_id)
+    else:
+        course = db.get(Course, course_id)
+        if course:
+            course.kb_status = "empty"
+            course.kb_error = None
+            course.kb_built_at = None
+            db.execute(delete(TopicPrereq).where(TopicPrereq.course_id == course_id))
+            db.execute(
+                delete(ChunkTopic).where(
+                    ChunkTopic.topic_id.in_(
+                        select(Topic.id).where(Topic.course_id == course_id)
+                    )
+                )
+            )
+            db.execute(
+                delete(ChunkConcept).where(
+                    ChunkConcept.concept_id.in_(
+                        select(Concept.id).where(Concept.course_id == course_id)
+                    )
+                )
+            )
+            db.execute(delete(Concept).where(Concept.course_id == course_id))
+            db.execute(
+                update(Topic).where(Topic.course_id == course_id).values(parent_id=None)
+            )
+            db.execute(delete(Topic).where(Topic.course_id == course_id))
+            db.commit()
 
     return SourceDeleteResponse(deleted=True)

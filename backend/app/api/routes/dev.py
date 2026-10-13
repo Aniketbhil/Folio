@@ -1,6 +1,13 @@
-from fastapi import APIRouter, Depends
+from typing import Any, Dict, List, Optional
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select, update
+from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.errors import AppError
+from app.db.session import get_db
+from app.models.source import Chunk, Source
+from app.schemas.citation import Citation
 from app.schemas.dev import (
     EmbedTestRequest,
     EmbedTestResponse,
@@ -9,7 +16,9 @@ from app.schemas.dev import (
     VectorTestResultItem,
     VectorTestResponse,
 )
+from app.services.citations import build_citation
 from app.services.llm import LLMClient, get_llm_client
+from app.services.retrieval import retrieve
 from app.services.vector_store import VectorStore, get_vector_store
 
 router = APIRouter(prefix="/dev", tags=["Developer"])
@@ -102,3 +111,113 @@ def test_vector(
         ],
         cleaned_up=True,
     )
+
+
+@router.get("/search", response_model=List[Citation])
+def dev_search(
+    course_id: int,
+    q: str,
+    top_k: int = 6,
+    db: Session = Depends(get_db),
+) -> List[Citation]:
+    """Perform hybrid retrieval against vector store and relational metadata."""
+    settings = get_settings()
+    if not settings.debug:
+        raise AppError(
+            "Dev endpoints are only available in debug mode",
+            code="forbidden",
+            status_code=403,
+        )
+    retrieved = retrieve(db=db, course_id=course_id, query=q, top_k=top_k)
+    return [build_citation(rc.chunk, rc.source, score=rc.score) for rc in retrieved]
+
+
+@router.post("/vector-reset")
+def dev_vector_reset(
+    db: Session = Depends(get_db),
+    vector_store: VectorStore = Depends(get_vector_store),
+) -> Dict[str, Any]:
+    """Drop and recreate both Chroma collections, and reset chunk embedded flags."""
+    settings = get_settings()
+    if not settings.debug:
+        raise AppError(
+            "Dev endpoints are only available in debug mode",
+            code="forbidden",
+            status_code=403,
+        )
+    vector_store.reset_collections()
+    result = db.execute(update(Chunk).values(embedded=False))
+    db.commit()
+    count = result.rowcount
+    return {"reset": True, "chunks_unembedded": count}
+
+
+@router.post("/reembed-all")
+def dev_reembed_all(
+    db: Session = Depends(get_db),
+    llm: LLMClient = Depends(get_llm_client),
+    vector_store: VectorStore = Depends(get_vector_store),
+) -> Dict[str, Any]:
+    """Re-run the embedding stage over all chunks across all ready sources."""
+    settings = get_settings()
+    if not settings.debug:
+        raise AppError(
+            "Dev endpoints are only available in debug mode",
+            code="forbidden",
+            status_code=403,
+        )
+
+    ready_sources = list(
+        db.scalars(select(Source).where(Source.status == "ready")).all()
+    )
+
+    embedded_count = 0
+    failed_count = 0
+    batch_size = 32
+
+    for source in ready_sources:
+        try:
+            chunks = list(
+                db.scalars(
+                    select(Chunk)
+                    .where(Chunk.source_id == source.id)
+                    .order_by(Chunk.chunk_index.asc())
+                ).all()
+            )
+            if not chunks:
+                continue
+
+            vector_store.delete_by_source(source.id)
+
+            for i in range(0, len(chunks), batch_size):
+                batch = chunks[i : i + batch_size]
+                texts = [
+                    ((c.section_title + "\n") if c.section_title else "") + c.text[:2000]
+                    for c in batch
+                ]
+                embeddings = llm.embed_texts(texts, task="document")
+
+                records = [
+                    {
+                        "chunk_id": c.id,
+                        "course_id": c.course_id,
+                        "source_id": c.source_id,
+                        "text": c.text,
+                        "embedding": emb,
+                    }
+                    for c, emb in zip(batch, embeddings)
+                ]
+                vector_store.add_chunks(records)
+
+                for c in batch:
+                    c.embedded = True
+                db.commit()
+                embedded_count += len(batch)
+        except Exception:
+            failed_count += 1
+
+    return {
+        "sources": len(ready_sources),
+        "chunks_embedded": embedded_count,
+        "chunks_failed": failed_count,
+    }

@@ -102,33 +102,80 @@ def _stage_save(ctx: IngestionContext, db: Session) -> None:
         chunk_models.append(chunk)
 
     db.add_all(chunk_models)
-
-    # Finalize ready state
-    source.status = "ready"
-    source.stage = "done"
-    source.progress = 100
     source.num_units = ctx.parser_result.num_units
-    source.error = None
 
     # Merge metadata
     merged_meta = dict(source.meta or {})
     merged_meta.update(ctx.parser_result.meta)
     source.meta = merged_meta
-
     db.commit()
+
+
+def _stage_embedding(ctx: IngestionContext, db: Session) -> None:
+    """Stage 4: Compute text embeddings and insert into persistent vector store."""
+    from app.services.llm import get_llm_client
+    from app.services.vector_store import get_vector_store
+
+    source = ctx.source
+    source.stage = "embedding"
+    source.progress = 85
+    db.commit()
+
+    llm = get_llm_client()
+    vstore = get_vector_store()
+
+    # Idempotent: delete previous vectors for this source
+    vstore.delete_by_source(source.id)
+
+    chunks = list(
+        db.scalars(
+            select(Chunk)
+            .where(Chunk.source_id == source.id)
+            .order_by(Chunk.chunk_index.asc())
+        ).all()
+    )
+
+    if chunks:
+        embed_texts_list = [
+            (((c.section_title + "\n") if c.section_title else "") + c.text)[:2000]
+            for c in chunks
+        ]
+        embeddings = llm.embed_texts(embed_texts_list, task="document")
+
+        items_to_add: List[Dict[str, Any]] = []
+        for chunk_obj, emb in zip(chunks, embeddings):
+            items_to_add.append({
+                "chunk_id": chunk_obj.id,
+                "course_id": chunk_obj.course_id,
+                "source_id": chunk_obj.source_id,
+                "text": chunk_obj.text,
+                "embedding": emb,
+            })
+            chunk_obj.embedded = True
+
+        vstore.add_chunks(items_to_add)
+
+    source.progress = 95
+    source.status = "ready"
+    source.stage = "done"
+    source.progress = 100
+    source.error = None
+    db.commit()
+
     logger.info(
-        "Source %d ingestion completed: %d units, %d chunks created.",
+        "Source %d ingestion completed: %d units, %d chunks embedded and saved.",
         source.id,
         source.num_units,
-        len(chunk_models),
+        len(chunks),
     )
 
 
-# Ordered stage list - easily extended in Prompt 3 for embeddings & topics
+# Ordered stage list
 PIPELINE_STAGES: List[Callable[[IngestionContext, Session], None]] = [
     _stage_parse,
     _stage_chunk,
     _stage_save,
+    _stage_embedding,
 ]
 
 
@@ -147,10 +194,30 @@ def run_ingestion(source_id: int) -> None:
         ctx = IngestionContext(source_id=source_id)
         ctx.source = source
 
+        course_id = source.course_id
         current_stage = "parsing"
         try:
             for stage_fn in PIPELINE_STAGES:
                 stage_fn(ctx, db)
+
+            # Auto-trigger KB build if configured and no other sources are processing
+            settings = get_settings()
+            if settings.auto_build_kb:
+                try:
+                    from sqlalchemy import func
+                    with SessionLocal() as check_db:
+                        other_active = check_db.scalar(
+                            select(func.count(Source.id)).where(
+                                Source.course_id == course_id,
+                                Source.id != source_id,
+                                Source.status.in_(["queued", "processing"]),
+                            )
+                        ) or 0
+                    if other_active == 0:
+                        from app.services.kb.service import get_kb_service
+                        get_kb_service().request_build(course_id)
+                except Exception as kb_trigger_err:
+                    logger.warning("Could not auto-trigger KB build for course %d: %s", course_id, kb_trigger_err)
         except Exception as exc:
             db.rollback()
             logger.exception("Ingestion failed for source %d at stage '%s': %s", source_id, source.stage, exc)

@@ -51,6 +51,12 @@ class Source(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
+    @property
+    def media_url(self) -> Optional[str]:
+        if self.meta and isinstance(self.meta, dict):
+            return self.meta.get("media_url")
+        return None
+
     course: Mapped["Course"] = relationship(back_populates="sources")
     chunks: Mapped[List["Chunk"]] = relationship(
         back_populates="source", cascade="all, delete-orphan"

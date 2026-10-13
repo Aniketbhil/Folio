@@ -20,6 +20,7 @@ class SourceRead(BaseModel):
     error: Optional[str] = None
     num_units: int = 0
     meta: Dict[str, Any] = {}
+    media_url: Optional[str] = None
     created_at: datetime
     chunk_count: int = 0
 

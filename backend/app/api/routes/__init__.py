@@ -1,3 +1,3 @@
-from app.api.routes import courses, dev, health, sources, students
+from app.api.routes import chunks, courses, dev, health, kb, sources, students
 
-__all__ = ["courses", "dev", "health", "sources", "students"]
+__all__ = ["chunks", "courses", "dev", "health", "kb", "sources", "students"]

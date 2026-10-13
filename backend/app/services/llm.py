@@ -41,33 +41,73 @@ class LLMClient:
                     status_code=500,
                 )
 
+    def _call_with_backoff(self, operation: Any, *args: Any, **kwargs: Any) -> Any:
+        """Execute a callable with exponential backoff on transient and rate limit errors (3 retries)."""
+        import time
+
+        delays = [2.0, 4.0, 8.0]
+        last_exc: Optional[Exception] = None
+
+        for attempt in range(len(delays) + 1):
+            try:
+                return operation(*args, **kwargs)
+            except Exception as exc:
+                last_exc = exc
+                err_str = str(exc).lower()
+                is_transient = any(
+                    token in err_str
+                    for token in ["429", "503", "quota", "rate limit", "resourceexhausted", "unavailable", "timeout", "timed out"]
+                )
+                if attempt < len(delays) and is_transient:
+                    sleep_sec = delays[attempt]
+                    logger.warning(
+                        "LLM transient/rate-limit error: %s. Retrying in %.1fs (attempt %d/%d)...",
+                        exc,
+                        sleep_sec,
+                        attempt + 1,
+                        len(delays),
+                    )
+                    time.sleep(sleep_sec)
+                else:
+                    break
+
+        if last_exc:
+            err_str = str(last_exc).lower()
+            if any(token in err_str for token in ["429", "quota", "rate limit", "resourceexhausted"]):
+                raise AppError(
+                    message="Rate limit reached. Please retry in a minute.",
+                    code="llm_error",
+                    status_code=502,
+                )
+            raise AppError(
+                message=f"LLM operation failed: {last_exc}",
+                code="llm_error",
+                status_code=502,
+            )
+
     def generate_text(self, prompt: str, system: Optional[str] = None) -> str:
         """Generate plain text completion."""
         if self._mock:
             prompt_snip = prompt.strip().replace("\n", " ")[:60]
             return f"Mock LLM response for prompt: {prompt_snip}"
 
-        try:
-            from google.genai import types
+        from google.genai import types
 
-            config = (
-                types.GenerateContentConfig(system_instruction=system)
-                if system
-                else None
-            )
-            response = self._client.models.generate_content(
+        config = (
+            types.GenerateContentConfig(system_instruction=system)
+            if system
+            else None
+        )
+
+        def _call():
+            return self._client.models.generate_content(
                 model=self._settings.llm_model,
                 contents=prompt,
                 config=config,
             )
-            return response.text or ""
-        except Exception as exc:
-            logger.exception("Gemini generate_text failed: %s", exc)
-            raise AppError(
-                message=f"LLM generation failed: {exc}",
-                code="llm_error",
-                status_code=502,
-            )
+
+        response = self._call_with_backoff(_call)
+        return response.text or ""
 
     def generate_json(
         self,
@@ -92,11 +132,14 @@ class LLMClient:
                     response_schema=schema,
                     system_instruction=system,
                 )
-                response = self._client.models.generate_content(
-                    model=self._settings.llm_model,
-                    contents=current_prompt,
-                    config=config,
-                )
+                def _call():
+                    return self._client.models.generate_content(
+                        model=self._settings.llm_model,
+                        contents=current_prompt,
+                        config=config,
+                    )
+
+                response = self._call_with_backoff(_call)
                 raw_text = response.text or "{}"
                 return schema.model_validate_json(raw_text)
             except (pydantic.ValidationError, ValueError, json.JSONDecodeError) as val_err:
@@ -112,6 +155,8 @@ class LLMClient:
                         f"[Notice: Previous output attempt failed with validation error: {val_err}. "
                         f"Ensure response strictly conforms to the requested schema.]"
                     )
+            except AppError:
+                raise
             except Exception as exc:
                 logger.exception("Gemini generate_json call error: %s", exc)
                 raise AppError(
@@ -146,15 +191,34 @@ class LLMClient:
             for i in range(0, len(texts), batch_size):
                 batch = texts[i : i + batch_size]
                 config = types.EmbedContentConfig(task_type=task_type)
-                response = self._client.models.embed_content(
-                    model=self._settings.embedding_model,
-                    contents=batch,
-                    config=config,
-                )
+
+                def _call_embed():
+                    return self._client.models.embed_content(
+                        model=self._settings.embedding_model,
+                        contents=batch,
+                        config=config,
+                    )
+
+                response = self._call_with_backoff(_call_embed)
                 for emb in response.embeddings:
                     results.append(list(emb.values))
             return results
+        except AppError as app_err:
+            if "rate limit" in app_err.message.lower() or "quota" in app_err.message.lower():
+                raise AppError(
+                    message="Embedding failed: rate limit reached. Please retry in a minute.",
+                    code="llm_error",
+                    status_code=502,
+                )
+            raise
         except Exception as exc:
+            err_str = str(exc).lower()
+            if any(token in err_str for token in ["429", "quota", "rate limit", "resourceexhausted"]):
+                raise AppError(
+                    message="Embedding failed: rate limit reached. Please retry in a minute.",
+                    code="llm_error",
+                    status_code=502,
+                )
             logger.exception("Gemini embed_texts failed: %s", exc)
             raise AppError(
                 message=f"Embedding generation failed: {exc}",
