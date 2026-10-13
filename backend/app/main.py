@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import app.models  # noqa: F401 - ensure all models are registered on Base.metadata
-from app.api.routes import chunks, courses, dev, health, kb, sources, students
+from app.api.routes import chunks, courses, dev, health, kb, sources, students, tutor
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.db.session import Base, SessionLocal, engine, run_sqlite_migrations
@@ -123,6 +123,7 @@ def create_app() -> FastAPI:
     api_v1_router.include_router(sources.router)
     api_v1_router.include_router(kb.router)
     api_v1_router.include_router(chunks.router)
+    api_v1_router.include_router(tutor.router)
 
     if settings.debug:
         api_v1_router.include_router(dev.router)

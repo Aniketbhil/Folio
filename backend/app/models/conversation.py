@@ -51,6 +51,7 @@ class Message(Base):
         String, nullable=True
     )  # grounded | partial | unsupported
     citations: Mapped[List[Any]] = mapped_column(JSON, default=list, nullable=False)
+    meta: Mapped[Optional[dict]] = mapped_column(JSON, default=dict, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

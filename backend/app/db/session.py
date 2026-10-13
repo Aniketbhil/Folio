@@ -50,6 +50,7 @@ def run_sqlite_migrations(engine_instance=engine) -> None:
     try:
         ensure_sqlite_column(engine_instance, "courses", "kb_error", "TEXT")
         ensure_sqlite_column(engine_instance, "courses", "kb_built_at", "DATETIME")
+        ensure_sqlite_column(engine_instance, "messages", "meta", "JSON")
     except Exception:
         pass
 

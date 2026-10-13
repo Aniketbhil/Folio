@@ -40,6 +40,22 @@ from app.schemas.kb import (
     GraphResponse,
 )
 
+from app.schemas.tutor import (
+    ConversationCreate,
+    ConversationDeleteResponse,
+    ConversationListItem,
+    ConversationRead,
+    DevAskRequest,
+    DevAskResponse,
+    DevAskThresholds,
+    DevAskTopHit,
+    MessageCreate,
+    MessageRead,
+    RelatedTopicItem,
+    TutorCitation,
+    TutorResponse,
+)
+
 __all__ = [
     "ErrorDetail",
     "ErrorResponse",
@@ -79,4 +95,17 @@ __all__ = [
     "GraphNode",
     "GraphEdge",
     "GraphResponse",
+    "TutorCitation",
+    "RelatedTopicItem",
+    "ConversationCreate",
+    "ConversationRead",
+    "ConversationListItem",
+    "MessageCreate",
+    "MessageRead",
+    "TutorResponse",
+    "ConversationDeleteResponse",
+    "DevAskRequest",
+    "DevAskTopHit",
+    "DevAskThresholds",
+    "DevAskResponse",
 ]

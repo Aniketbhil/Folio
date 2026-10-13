@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+import re
 from functools import lru_cache
 from typing import Any, List, Literal, Optional, Type, TypeVar, get_args, get_origin, Union
 import numpy as np
@@ -227,10 +228,19 @@ class LLMClient:
             )
 
     def _mock_embedding(self, text: str, dim: int = 64) -> List[float]:
-        """Compute deterministic 64-dim unit vector derived from SHA256 hash of text."""
-        seed = int.from_bytes(hashlib.sha256(text.encode("utf-8")).digest()[:8], "big")
-        rng = np.random.default_rng(seed)
-        vec = rng.standard_normal(dim)
+        """Compute deterministic 64-dim unit vector derived from word tokens."""
+        words = set(re.findall(r"\b[a-zA-Z0-9]+\b", text.lower()))
+        if not words:
+            seed = int.from_bytes(hashlib.sha256(text.encode("utf-8")).digest()[:8], "big")
+            rng = np.random.default_rng(seed)
+            vec = rng.standard_normal(dim)
+        else:
+            vec = np.zeros(dim, dtype=float)
+            for w in words:
+                w_seed = int.from_bytes(hashlib.sha256(w.encode("utf-8")).digest()[:8], "big")
+                w_rng = np.random.default_rng(w_seed)
+                vec += w_rng.standard_normal(dim)
+
         norm = np.linalg.norm(vec)
         if norm > 0:
             vec = vec / norm

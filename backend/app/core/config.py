@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     kb_max_toplevel: int = Field(default=10, description="Maximum top-level topics in generated taxonomy")
     kb_max_subtopics: int = Field(default=5, description="Maximum subtopics per top-level topic")
     snippet_chars: int = Field(default=300, description="Character limit for citation snippets")
+    tutor_top_k: int = Field(default=8, description="Number of chunks retrieved for tutor prompt")
+    tutor_min_score: float = Field(default=0.50, description="Minimum similarity score threshold to avoid refusal")
+    tutor_strong_score: float = Field(default=0.65, description="Similarity score threshold indicating strong evidence")
+    tutor_history_turns: int = Field(default=6, description="Number of message pairs to include in context")
+    tutor_context_chars: int = Field(default=1500, description="Maximum characters per chunk placed in prompt")
+    tutor_mock_min_overlap: float = Field(default=0.20, description="Minimum lexical overlap for partial grounding in mock mode")
 
     @property
     def parsed_cors_origins(self) -> List[str]:

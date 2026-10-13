@@ -8,6 +8,7 @@ from app.core.errors import AppError
 from app.db.session import get_db
 from app.models.source import Chunk, Source
 from app.schemas.citation import Citation
+from app.schemas.tutor import DevAskRequest, DevAskResponse
 from app.schemas.dev import (
     EmbedTestRequest,
     EmbedTestResponse,
@@ -19,6 +20,7 @@ from app.schemas.dev import (
 from app.services.citations import build_citation
 from app.services.llm import LLMClient, get_llm_client
 from app.services.retrieval import retrieve
+from app.services.tutor import get_tutor_service
 from app.services.vector_store import VectorStore, get_vector_store
 
 router = APIRouter(prefix="/dev", tags=["Developer"])
@@ -221,3 +223,27 @@ def dev_reembed_all(
         "chunks_embedded": embedded_count,
         "chunks_failed": failed_count,
     }
+
+
+@router.post("/ask", response_model=DevAskResponse)
+def dev_ask(
+    payload: DevAskRequest,
+    db: Session = Depends(get_db),
+) -> DevAskResponse:
+    """Run retrieval, gate, and answer without persisting conversation or messages."""
+    settings = get_settings()
+    if not settings.debug:
+        raise AppError(
+            "Dev endpoints are only available in debug mode",
+            code="forbidden",
+            status_code=403,
+        )
+    tutor = get_tutor_service()
+    return tutor.ask_dev(
+        db=db,
+        course_id=payload.course_id,
+        question=payload.question,
+        topic_ids=payload.topic_ids,
+        history=payload.history,
+    )
+
