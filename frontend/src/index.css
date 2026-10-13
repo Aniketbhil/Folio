@@ -12,25 +12,43 @@
   --color-brand-300: #8ec7a6;
   --color-brand-400: #5fa882;
   --color-brand-500: #3b8c63;
-  --color-brand-600: #2a734e;
-  --color-brand-700: #215c3f;
-  --color-brand-800: #1b4932;
-  --color-brand-900: #163c29;
+  --color-brand-600: #256b47;
+  --color-brand-700: #1e563a;
+  --color-brand-800: #19462f;
+  --color-brand-900: #143926;
   --color-brand-950: #0a1f15;
 
-  /* Warm Neutral Surfaces (Light) */
+  /* Restrained Warm Amber (Attention / Active Progress) */
+  --color-amber-50: #fefbf3;
+  --color-amber-100: #fdf5df;
+  --color-amber-200: #fae6b8;
+  --color-amber-500: #d97706;
+  --color-amber-600: #b45309;
+  --color-amber-700: #92400e;
+
+  /* Restrained Terracotta (Selected Highlights) */
+  --color-terracotta-50: #faf4f0;
+  --color-terracotta-100: #f4e3da;
+  --color-terracotta-200: #e7c3b2;
+  --color-terracotta-500: #c25e36;
+  --color-terracotta-600: #a54924;
+  --color-terracotta-700: #863617;
+
+  /* Warm Neutral Surfaces (Light Mode) */
   --color-surface-canvas: #fbfaf7;
   --color-surface-card: #ffffff;
-  --color-surface-muted: #f3f1ec;
-  --color-surface-border: #e5e2da;
-  --color-surface-text: #1b1e1c;
+  --color-surface-muted: #f4f2ec;
+  --color-surface-border: #e6e3da;
+  --color-surface-border-subtle: #eeece5;
+  --color-surface-text: #191c1a;
   --color-surface-text-muted: #5e6660;
 
-  /* Deep Charcoal Surfaces (Dark) */
+  /* Deep Charcoal Surfaces (Dark Mode) */
   --color-dark-canvas: #121413;
   --color-dark-card: #181c19;
-  --color-dark-muted: #212723;
-  --color-dark-border: #2a332d;
+  --color-dark-muted: #212623;
+  --color-dark-border: #2c332e;
+  --color-dark-border-subtle: #232924;
   --color-dark-text: #f0f2ef;
   --color-dark-text-muted: #95a098;
 }
@@ -44,14 +62,42 @@
     color-scheme: dark;
   }
 
+  *,
+  ::before,
+  ::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     background-color: var(--color-surface-canvas);
     color: var(--color-surface-text);
     min-height: 100vh;
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
   }
 
   .dark body {
     background-color: var(--color-dark-canvas);
     color: var(--color-dark-text);
+  }
+
+  /* Accessibility: Respect reduced motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
