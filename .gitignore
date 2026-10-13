@@ -1,0 +1,121 @@
+
+# ==========================================
+# Environment variables and secrets
+# ==========================================
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# ==========================================
+# Python / FastAPI (backend)
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+wheels/
+pip-wheel-metadata/
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.pytype/
+.ruff_cache/
+.hypothesis/
+
+# Logs
+*.log
+logs/
+
+# Database files (SQLite and local DBs)
+*.db
+*.sqlite
+*.sqlite3
+
+# Alembic
+# Keep alembic.ini and migration scripts tracked
+# Ignore only generated temporary files
+alembic.ini.tmp
+
+# Jupyter
+.ipynb_checkpoints/
+
+# ==========================================
+# JavaScript / React (frontend)
+# ==========================================
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Vite
+.vite/
+
+# Next.js (if used instead of Vite)
+.next/
+out/
+
+# React testing
+.nyc_output/
+
+# Package manager caches
+.npm/
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+
+# ==========================================
+# IDEs and editors
+# ==========================================
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+.idea/
+*.swp
+*.swo
+*~
+
+# ==========================================
+# Operating system files
+# ==========================================
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ==========================================
+# Docker / local development
+# ==========================================
+# Uncomment if you store local volumes in these paths
+# docker-data/
+# postgres-data/
+# redis-data/
+
+# ==========================================
+# Temporary files
+# ==========================================
+tmp/
+temp/
+*.tmp
+*.bak
