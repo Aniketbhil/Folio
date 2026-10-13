@@ -39,6 +39,7 @@ class Assessment(Base):
     status: Mapped[str] = mapped_column(
         String, default="in_progress", server_default="in_progress", nullable=False
     )  # in_progress | submitted
+    title: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     config: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -97,6 +98,7 @@ class Question(Base):
     position: Mapped[int] = mapped_column(
         Integer, default=0, server_default="0", nullable=False
     )
+    meta: Mapped[Optional[dict]] = mapped_column(JSON, default=dict, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

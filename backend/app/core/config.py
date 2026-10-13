@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Union, List
+from typing import List, Optional, Union
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -41,6 +41,15 @@ class Settings(BaseSettings):
     tutor_history_turns: int = Field(default=6, description="Number of message pairs to include in context")
     tutor_context_chars: int = Field(default=1500, description="Maximum characters per chunk placed in prompt")
     tutor_mock_min_overlap: float = Field(default=0.20, description="Minimum lexical overlap for partial grounding in mock mode")
+    quiz_max_questions: int = Field(default=20, description="Maximum questions in a quiz")
+    exam_max_questions: int = Field(default=40, description="Maximum questions in a mock exam")
+    diagnostic_questions: int = Field(default=8, description="Target question count for diagnostic assessment")
+    quiz_context_chunks: int = Field(default=4, description="Max source chunks given to generator per topic")
+    quiz_context_chars: int = Field(default=1200, description="Max characters per chunk in quiz prompt")
+    quiz_dup_similarity: float = Field(default=0.90, description="Embedding similarity threshold for question deduplication")
+    quiz_parallelism: int = Field(default=3, description="Max concurrent LLM calls during question generation")
+    quiz_max_rounds: int = Field(default=2, description="Generation and verification rounds to fill shortfall")
+    verify_model: Optional[str] = Field(default=None, description="Optional model name for verification")
 
     @property
     def parsed_cors_origins(self) -> List[str]:

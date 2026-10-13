@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.models.source import Chunk, Source
 from app.schemas.citation import Citation
 from app.schemas.tutor import DevAskRequest, DevAskResponse
+from app.schemas.assessment import DevGenerateQuestionsRequest, DevGenerateQuestionsResponse
 from app.schemas.dev import (
     EmbedTestRequest,
     EmbedTestResponse,
@@ -245,5 +246,134 @@ def dev_ask(
         question=payload.question,
         topic_ids=payload.topic_ids,
         history=payload.history,
+    )
+
+
+@router.post("/generate-questions", response_model=DevGenerateQuestionsResponse)
+def dev_generate_questions(
+    payload: DevGenerateQuestionsRequest,
+    db: Session = Depends(get_db),
+) -> DevGenerateQuestionsResponse:
+    """Run selection + generation + verification + dedupe WITHOUT persisting anything."""
+    from app.models.course import Course
+    from app.models.topic import Concept, Topic
+    from app.services.assessment.selection import (
+        TopicContext,
+        plan_topic_difficulty_and_qtypes,
+        select_topic_chunks,
+    )
+    from app.services.assessment.generator import (
+        LiveQuestionGenerator,
+        MockQuestionGenerator,
+    )
+    from app.services.assessment.verifier import (
+        LiveQuestionVerifier,
+        MockQuestionVerifier,
+    )
+    from app.services.assessment.dedupe import deduplicate_candidates
+
+    settings = get_settings()
+    if not settings.debug:
+        raise AppError(
+            "Dev endpoints are only available in debug mode",
+            code="forbidden",
+            status_code=403,
+        )
+
+    course = db.get(Course, payload.course_id)
+    if not course:
+        raise AppError(f"Course {payload.course_id} not found", code="course_not_found", status_code=404)
+
+    topic = db.get(Topic, payload.topic_id)
+    if not topic or topic.course_id != payload.course_id:
+        raise AppError(f"Topic {payload.topic_id} not found in course", code="topic_not_found", status_code=404)
+
+    student_id = payload.student_id or 0
+    warnings: List[str] = []
+
+    chunks, source_map, chunk_cits, has_num = select_topic_chunks(
+        db=db,
+        student_id=student_id,
+        course_id=payload.course_id,
+        topic_id=payload.topic_id,
+    )
+    if not chunks:
+        raise AppError("No chunks tagged to this topic", code="no_content", status_code=404)
+
+    parent_topic = db.get(Topic, topic.parent_id) if topic.parent_id else None
+    concepts = list(db.scalars(select(Concept).where(Concept.topic_id == topic.id)).all())
+
+    diffs, qtypes = plan_topic_difficulty_and_qtypes(
+        db=db,
+        student_id=student_id,
+        topic=topic,
+        count=payload.num_questions,
+        difficulty=payload.difficulty,
+        question_types=payload.question_types,
+        kind="quiz",
+        has_numerical=has_num,
+        warnings=warnings,
+    )
+
+    ctx = TopicContext(
+        topic=topic,
+        parent_topic=parent_topic,
+        concepts=concepts,
+        chunks=chunks,
+        source_map=source_map,
+        chunk_citations=chunk_cits,
+        requested_count=payload.num_questions,
+        assigned_qtypes=qtypes,
+        assigned_difficulties=diffs,
+        has_numerical_support=has_num,
+    )
+
+    all_concepts = list(
+        db.scalars(
+            select(Concept.name)
+            .join(Topic, Topic.id == Concept.topic_id)
+            .where(Topic.course_id == payload.course_id)
+        ).all()
+    )
+
+    llm = get_llm_client()
+    if settings.llm_mock:
+        gen = MockQuestionGenerator(all_concepts)
+        ver = MockQuestionVerifier()
+    else:
+        gen = LiveQuestionGenerator(llm)
+        ver = LiveQuestionVerifier(llm)
+
+    cands = gen.generate_for_topic(ctx, [], seed=42)
+    all_chunks_map = {c.id: c for c in chunks}
+    verified, rejected = ver.verify_candidates(cands, all_chunks_map)
+    final_unique, duplicates, _ = deduplicate_candidates(db, payload.course_id, student_id, verified)
+
+    accepted_list = []
+    for q in final_unique:
+        accepted_list.append({
+            "topic_id": q.topic_id,
+            "concept_id": q.concept_id,
+            "qtype": q.qtype,
+            "difficulty": q.difficulty,
+            "prompt": q.prompt,
+            "options": q.options,
+            "correct_answer": q.correct_answer,
+            "explanation": q.explanation,
+            "source_chunk_ids": q.source_chunk_ids,
+            "key_points": q.meta.get("key_points") if q.meta else None,
+            "tolerance_pct": q.meta.get("tolerance_pct") if q.meta else None,
+            "unit": q.unit,
+            "verified": q.verified,
+            "verification_notes": q.verification_notes,
+            "fingerprint": q.fingerprint,
+        })
+
+    return DevGenerateQuestionsResponse(
+        accepted=accepted_list,
+        rejected=rejected,
+        duplicates=duplicates,
+        mode="mock" if settings.llm_mock else "live",
+        verify_model=settings.verify_model if settings.verify_model else None,
     )
 

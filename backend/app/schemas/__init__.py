@@ -55,6 +55,19 @@ from app.schemas.tutor import (
     TutorCitation,
     TutorResponse,
 )
+from app.schemas.assessment import (
+    QuestionOptionOut,
+    QuestionTopicOut,
+    QuestionConceptOut,
+    QuestionSourceOut,
+    QuestionOut,
+    AssessmentCreate,
+    AssessmentOut,
+    AssessmentListItem,
+    AssessmentDeleteResponse,
+    DevGenerateQuestionsRequest,
+    DevGenerateQuestionsResponse,
+)
 
 __all__ = [
     "ErrorDetail",

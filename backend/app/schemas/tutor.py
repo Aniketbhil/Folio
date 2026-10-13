@@ -27,6 +27,7 @@ class ConversationRead(BaseModel):
     student_id: int
     title: str
     created_at: datetime
+    updated_at: Optional[datetime] = None
     message_count: int = 0
 
 
@@ -36,6 +37,7 @@ class ConversationListItem(BaseModel):
     student_id: int
     title: str
     created_at: datetime
+    updated_at: Optional[datetime] = None
     message_count: int = 0
     last_message_preview: Optional[str] = None
 
@@ -62,6 +64,7 @@ class TutorResponse(BaseModel):
     conversation_id: int
     user_message_id: int
     message_id: int
+    assistant_message_id: Optional[int] = None
     answer: str
     grounding: Optional[str] = None  # "grounded" | "partial" | "unsupported" | None
     citations: List[TutorCitation] = []
@@ -91,6 +94,7 @@ class DevAskTopHit(BaseModel):
 class DevAskThresholds(BaseModel):
     min: float
     strong: float
+    mock_min_overlap: Optional[float] = None
 
 
 class DevAskResponse(BaseModel):
@@ -98,6 +102,7 @@ class DevAskResponse(BaseModel):
     top_hits: List[DevAskTopHit] = []
     best_score: float = 0.0
     gate: str  # "passed" | "refused_low_score" | "refused_no_content"
+    gate_decision: Optional[str] = None
     thresholds: DevAskThresholds
     mode: str  # "mock" | "live"
     raw_llm_output: Optional[Dict[str, Any]] = None

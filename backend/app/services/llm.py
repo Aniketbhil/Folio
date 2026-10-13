@@ -86,7 +86,9 @@ class LLMClient:
                 status_code=502,
             )
 
-    def generate_text(self, prompt: str, system: Optional[str] = None) -> str:
+    def generate_text(
+        self, prompt: str, system: Optional[str] = None, model: Optional[str] = None
+    ) -> str:
         """Generate plain text completion."""
         if self._mock:
             prompt_snip = prompt.strip().replace("\n", " ")[:60]
@@ -99,10 +101,11 @@ class LLMClient:
             if system
             else None
         )
+        target_model = model or self._settings.llm_model
 
         def _call():
             return self._client.models.generate_content(
-                model=self._settings.llm_model,
+                model=target_model,
                 contents=prompt,
                 config=config,
             )
@@ -116,6 +119,7 @@ class LLMClient:
         schema: Type[T],
         system: Optional[str] = None,
         max_retries: int = 2,
+        model: Optional[str] = None,
     ) -> T:
         """Generate structured output adhering to a Pydantic schema with retry on invalid output."""
         if self._mock:
@@ -125,6 +129,7 @@ class LLMClient:
 
         current_prompt = prompt
         last_error: Optional[Exception] = None
+        target_model = model or self._settings.llm_model
 
         for attempt in range(max_retries + 1):
             try:
@@ -135,7 +140,7 @@ class LLMClient:
                 )
                 def _call():
                     return self._client.models.generate_content(
-                        model=self._settings.llm_model,
+                        model=target_model,
                         contents=current_prompt,
                         config=config,
                     )

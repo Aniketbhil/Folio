@@ -236,37 +236,110 @@ class VectorStore:
         embedding: List[float],
         metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Add or update an assessment question vector."""
-        meta: Dict[str, Any] = {
-            "question_id": int(question_id),
-            "course_id": int(course_id),
+        """Add or update an assessment question vector with dimension safety."""
+        item = {
+            "question_id": question_id,
+            "course_id": course_id,
+            "prompt": prompt,
+            "embedding": embedding,
         }
         if metadata:
-            meta.update(metadata)
+            item.update(metadata)
+        self.add_questions([item])
 
-        self._questions_col.upsert(
-            ids=[f"q_{question_id}"],
-            embeddings=[embedding],
-            documents=[prompt],
-            metadatas=[meta],
-        )
+    def add_questions(self, items: List[Dict[str, Any]]) -> None:
+        """Add or update multiple assessment questions with dimension safety."""
+        if not items:
+            return
+
+        dim = len(items[0]["embedding"])
+        current_meta = self._questions_col.metadata or {}
+        stored_dim = current_meta.get("embedding_dim")
+
+        if stored_dim is not None:
+            if int(stored_dim) != dim:
+                raise AppError(
+                    message="Vector store was created with a different embedding size (mock vs live).",
+                    code="embedding_dim_mismatch",
+                    status_code=400,
+                )
+        else:
+            try:
+                meta_update = {k: v for k, v in current_meta.items() if k != "hnsw:space"}
+                meta_update["embedding_dim"] = dim
+                self._questions_col.modify(metadata=meta_update)
+            except Exception as exc:
+                logger.warning("Could not set embedding_dim in questions collection metadata: %s", exc)
+
+        ids: List[str] = []
+        embeddings: List[List[float]] = []
+        documents: List[str] = []
+        metadatas: List[Dict[str, Any]] = []
+
+        for item in items:
+            q_id = int(item["question_id"])
+            ids.append(f"q_{q_id}")
+            embeddings.append(item["embedding"])
+            documents.append(item.get("prompt", item.get("text", "")))
+
+            meta: Dict[str, Any] = {
+                "question_id": q_id,
+                "course_id": int(item["course_id"]),
+            }
+            if "student_id" in item and item["student_id"] is not None:
+                meta["student_id"] = int(item["student_id"])
+            if "assessment_id" in item and item["assessment_id"] is not None:
+                meta["assessment_id"] = int(item["assessment_id"])
+            if "topic_id" in item and item["topic_id"] is not None:
+                meta["topic_id"] = int(item["topic_id"])
+
+            metadatas.append(meta)
+
+        try:
+            self._questions_col.upsert(
+                ids=ids,
+                embeddings=embeddings,
+                documents=documents,
+                metadatas=metadatas,
+            )
+        except Exception as exc:
+            err_str = str(exc).lower()
+            if "dimension" in err_str:
+                raise AppError(
+                    message="Vector store was created with a different embedding size (mock vs live).",
+                    code="embedding_dim_mismatch",
+                    status_code=400,
+                )
+            raise
 
     def query_similar_questions(
         self,
         course_id: int,
         embedding: List[float],
         top_k: int = 5,
+        student_id: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
-        """Query top-k most similar questions in a course."""
+        """Query top-k most similar questions in a course, optionally filtered by student_id."""
         total = self._questions_col.count()
         if total == 0:
             return []
 
         actual_k = min(top_k, total)
+        where_filter: Dict[str, Any]
+        if student_id is not None:
+            where_filter = {
+                "$and": [
+                    {"course_id": int(course_id)},
+                    {"student_id": int(student_id)},
+                ]
+            }
+        else:
+            where_filter = {"course_id": int(course_id)}
+
         results = self._questions_col.query(
             query_embeddings=[embedding],
             n_results=actual_k,
-            where={"course_id": course_id},
+            where=where_filter,
         )
 
         output: List[Dict[str, Any]] = []
@@ -299,10 +372,17 @@ class VectorStore:
                     "score": round(score, 4),
                     "distance": round(float(dist), 4),
                     "prompt": doc,
+                    "student_id": meta.get("student_id") if meta else None,
+                    "assessment_id": meta.get("assessment_id") if meta else None,
+                    "topic_id": meta.get("topic_id") if meta else None,
                 }
             )
 
         return output
+
+    def delete_questions_by_assessment(self, assessment_id: int) -> None:
+        """Delete all questions belonging to an assessment."""
+        self._questions_col.delete(where={"assessment_id": int(assessment_id)})
 
     def delete_questions_by_course(self, course_id: int) -> None:
         """Delete all questions belonging to a course."""
