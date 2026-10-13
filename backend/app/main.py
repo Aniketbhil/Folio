@@ -6,12 +6,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import app.models  # noqa: F401 - ensure all models are registered on Base.metadata
-from app.api.routes import courses, dev, health, students
+from app.api.routes import courses, dev, health, sources, students
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
-from app.db.session import Base, engine
+from app.db.session import Base, SessionLocal, engine
+from app.models.source import Source
 from app.services.llm import get_llm_client
 from app.services.vector_store import get_vector_store
+from sqlalchemy import select
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,7 +43,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Base.metadata.create_all(bind=engine)
     logger.info("Database schema initialized successfully.")
 
-    # 3. Pre-warm services
+    # 3. Startup recovery: mark interrupted sources as failed
+    try:
+        with SessionLocal() as db:
+            interrupted_sources = list(
+                db.scalars(
+                    select(Source).where(Source.status.in_(["queued", "processing"]))
+                ).all()
+            )
+            for src in interrupted_sources:
+                src.status = "failed"
+                src.error = "Interrupted by a server restart. Use retry."
+            if interrupted_sources:
+                db.commit()
+                logger.info("Marked %d interrupted source(s) as failed.", len(interrupted_sources))
+    except Exception as exc:
+        logger.warning("Failed during startup recovery check: %s", exc)
+
+    # 4. Pre-warm services
     llm = get_llm_client()
     vstore = get_vector_store()
     logger.info(
@@ -86,6 +105,7 @@ def create_app() -> FastAPI:
     api_v1_router.include_router(health.router)
     api_v1_router.include_router(students.router)
     api_v1_router.include_router(courses.router)
+    api_v1_router.include_router(sources.router)
 
     if settings.debug:
         api_v1_router.include_router(dev.router)

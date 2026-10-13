@@ -26,6 +26,10 @@ class Settings(BaseSettings):
         description="Allowed CORS origins (comma-separated string or list)",
     )
     debug: bool = Field(default=True, description="Enable debug mode and dev endpoints")
+    max_upload_mb: int = Field(default=50, description="Maximum upload size in MB")
+    chunk_target_tokens: int = Field(default=400, description="Target token count per chunk")
+    chunk_overlap_tokens: int = Field(default=50, description="Overlap token count between chunks")
+    transcript_window_sec: int = Field(default=60, description="Target duration window in seconds for transcript chunks")
 
     @property
     def parsed_cors_origins(self) -> List[str]:

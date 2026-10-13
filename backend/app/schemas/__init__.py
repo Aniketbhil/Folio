@@ -15,6 +15,7 @@ from app.schemas.dev import (
     VectorTestResultItem,
     VectorTestResponse,
 )
+from app.schemas.source import ChunkRead, SourceDeleteResponse, SourceRead
 
 __all__ = [
     "ErrorDetail",
@@ -33,4 +34,7 @@ __all__ = [
     "EmbedTestResponse",
     "VectorTestResultItem",
     "VectorTestResponse",
+    "SourceRead",
+    "ChunkRead",
+    "SourceDeleteResponse",
 ]
