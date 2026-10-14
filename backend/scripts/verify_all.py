@@ -17,6 +17,7 @@ TEST_SUITES = [
     ("verify_grading.py", "Prompt 6: Grading, Misconceptions & BKT"),
     ("verify_learner.py", "Prompt 7: Personalization, Dashboard & Decay"),
     ("verify_final.py", "Prompt 8: Production Hardening & Evaluation"),
+    ("verify_llm_contract.py", "Regression: Live LLM Contract & Signatures"),
 ]
 
 
@@ -78,7 +79,7 @@ def run_all_suites() -> None:
         print("\n[RESULT] One or more verification suites failed.")
         sys.exit(1)
     else:
-        print("\n[RESULT] ALL 7 VERIFICATION SUITES PASSED CLEANLY! Folio backend is verified.")
+        print(f"\n[RESULT] ALL {len(TEST_SUITES)} VERIFICATION SUITES PASSED CLEANLY! Folio backend is verified.")
         sys.exit(0)
 
 

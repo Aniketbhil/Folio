@@ -34,6 +34,11 @@ class LLMClient:
             try:
                 from google import genai
                 self._client = genai.Client(api_key=settings.gemini_api_key)
+                logger.info(
+                    "LLMClient initialized in LIVE mode (model=%s, timeout=%ds)",
+                    settings.llm_model,
+                    settings.llm_timeout_sec,
+                )
             except Exception as exc:
                 logger.error("Failed to initialize Google GenAI Client: %s", exc)
                 raise AppError(
@@ -52,13 +57,13 @@ class LLMClient:
         timeout_sec = self._settings.llm_timeout_sec
 
         for attempt in range(len(delays) + 1):
+            executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
             try:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(operation, *args, **kwargs)
-                    try:
-                        return future.result(timeout=timeout_sec)
-                    except concurrent.futures.TimeoutError as te:
-                        raise TimeoutError(f"LLM call timed out after {timeout_sec}s") from te
+                future = executor.submit(operation, *args, **kwargs)
+                try:
+                    return future.result(timeout=timeout_sec)
+                except concurrent.futures.TimeoutError as te:
+                    raise TimeoutError(f"LLM call timed out after {timeout_sec}s") from te
             except Exception as exc:
                 last_exc = exc
                 err_str = str(exc).lower()
@@ -78,6 +83,8 @@ class LLMClient:
                     time.sleep(sleep_sec)
                 else:
                     break
+            finally:
+                executor.shutdown(wait=False, cancel_futures=True)
 
         if last_exc:
             err_str = str(last_exc).lower()
@@ -193,7 +200,10 @@ class LLMClient:
                     )
 
                 response = self._call_with_backoff(_call)
-                raw_text = response.text or "{}"
+                raw_text = (response.text or "{}").strip()
+                if raw_text.startswith("```"):
+                    raw_text = re.sub(r"^```(?:json)?\s*", "", raw_text)
+                    raw_text = re.sub(r"\s*```$", "", raw_text)
                 return schema.model_validate_json(raw_text)
             except (pydantic.ValidationError, ValueError, json.JSONDecodeError) as val_err:
                 last_error = val_err

@@ -369,7 +369,7 @@ class TutorService:
                     llm = get_llm_client()
                     llm_output = llm.generate_json(
                         prompt=answer_prompt,
-                        response_schema=TutorLLMOutput,
+                        schema=TutorLLMOutput,
                         system=TUTOR_SYSTEM_PROMPT,
                     )
                 except Exception as exc:
@@ -647,7 +647,7 @@ class TutorService:
                 llm = get_llm_client()
                 llm_output = llm.generate_json(
                     prompt=answer_prompt,
-                    response_schema=TutorLLMOutput,
+                    schema=TutorLLMOutput,
                     system=TUTOR_SYSTEM_PROMPT,
                 )
                 raw_llm_dict = llm_output.model_dump()
