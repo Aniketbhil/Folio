@@ -4,11 +4,13 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.12"
 dependencies = [
+    "argon2-cffi>=25.1.0",
     "chromadb>=1.5.9",
     "fastapi>=0.143.0",
     "google-genai>=2.30.0",
-    "pydantic>=2.14.1",
+    "pydantic[email]>=2.14.1",
     "pydantic-settings>=2.15.0",
+    "pyjwt>=2.15.1",
     "pymupdf>=1.28.2",
     "python-dotenv>=1.2.4",
     "python-multipart>=0.0.32",

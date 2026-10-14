@@ -16,8 +16,9 @@ from app.schemas.chunk import (
     ChunkViewer,
     ChunkViewerResponse,
 )
+from app.services.auth.dependencies import get_current_student
 
-router = APIRouter(prefix="/chunks", tags=["chunks"])
+router = APIRouter(prefix="/chunks", tags=["chunks"], dependencies=[Depends(get_current_student)])
 
 
 def _get_location(c: Chunk) -> Dict[str, Any]:

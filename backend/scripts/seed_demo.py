@@ -16,7 +16,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 # Add backend directory to sys.path
 backend_dir = Path(__file__).resolve().parent.parent
@@ -38,12 +38,13 @@ from app.models.topic import Topic
 
 
 class DemoClient:
-    """Wrapper that communicates via HTTP or in-process TestClient."""
+    """Wrapper that communicates via HTTP or in-process TestClient with token authentication."""
 
     def __init__(self, base_url: str):
         self.base_url = base_url.rstrip("/")
         self._http_client: Optional[httpx.Client] = None
         self._test_client: Optional[Any] = None
+        self.token: Optional[str] = None
 
         # Check if HTTP server is alive
         try:
@@ -57,22 +58,62 @@ class DemoClient:
         if self._http_client is None:
             from fastapi.testclient import TestClient
             self._test_client = TestClient(app)
+            self._test_client.__enter__()
             print("[Seed] Folio server not reachable via HTTP; using in-process TestClient.")
 
+    def set_token(self, token: Optional[str]) -> None:
+        self.token = token
+
+    def _prepare_kwargs(self, kwargs: dict) -> dict:
+        if self.token:
+            headers = dict(kwargs.get("headers") or {})
+            if "Authorization" not in headers and "authorization" not in headers:
+                headers["Authorization"] = f"Bearer {self.token}"
+            kwargs["headers"] = headers
+        return kwargs
+
     def get(self, url: str, **kwargs):
+        kwargs = self._prepare_kwargs(kwargs)
         if self._http_client:
             return self._http_client.get(url, **kwargs)
         return self._test_client.get(url, **kwargs)
 
     def post(self, url: str, **kwargs):
+        kwargs = self._prepare_kwargs(kwargs)
         if self._http_client:
             return self._http_client.post(url, **kwargs)
         return self._test_client.post(url, **kwargs)
 
     def delete(self, url: str, **kwargs):
+        kwargs = self._prepare_kwargs(kwargs)
         if self._http_client:
             return self._http_client.delete(url, **kwargs)
         return self._test_client.delete(url, **kwargs)
+
+
+def get_or_create_student(
+    client: DemoClient,
+    name: str,
+    email: str,
+    password: str = "Demo@1234",
+) -> Tuple[int, Optional[str]]:
+    """Create a student via signup or log in if existing, returning (student_id, access_token)."""
+    # Try signing up
+    r = client.post("/api/v1/auth/signup", json={"name": name, "email": email, "password": password})
+    if r.status_code == 201:
+        data = r.json()
+        return data["student"]["id"], data.get("access_token")
+    if r.status_code == 409:
+        # Email already registered; log in
+        r_login = client.post("/api/v1/auth/login", json={"email": email, "password": password})
+        if r_login.status_code == 200:
+            data = r_login.json()
+            return data["student"]["id"], data.get("access_token")
+    # Fallback for servers running with AUTH_REQUIRED=false or dev endpoints
+    r_fallback = client.post("/api/v1/students", json={"name": name})
+    if r_fallback.status_code == 201:
+        return r_fallback.json()["id"], None
+    raise RuntimeError(f"Could not create student {name} ({email}): status {r.status_code} - {r.text}")
 
 
 def seed_demo(base_url: str, material_dir_path: str, reset: bool) -> None:
@@ -80,8 +121,10 @@ def seed_demo(base_url: str, material_dir_path: str, reset: bool) -> None:
     material_dir = Path(material_dir_path)
 
     DEMO_COURSE_NAME = "Introduction to Classical Mechanics (PHYS101 - Fall 2026)"
-    STUDENT_NEW_NAME = "Demo New Student (new@folio.demo)"
-    STUDENT_ACTIVE_NAME = "Demo Active Student (active@folio.demo)"
+    STUDENT_NEW_NAME = "Demo New Student"
+    STUDENT_NEW_EMAIL = "demo.new@folio.demo"
+    STUDENT_ACTIVE_NAME = "Demo Active Student"
+    STUDENT_ACTIVE_EMAIL = "demo.active@folio.demo"
 
     # 1. Reset logic if requested
     if reset:
@@ -90,7 +133,11 @@ def seed_demo(base_url: str, material_dir_path: str, reset: bool) -> None:
             c = db.scalar(select(Course).where(Course.name == DEMO_COURSE_NAME))
             if c:
                 db.delete(c)
-            for sname in [STUDENT_NEW_NAME, STUDENT_ACTIVE_NAME]:
+            for semail in [STUDENT_NEW_EMAIL, STUDENT_ACTIVE_EMAIL]:
+                s = db.scalar(select(Student).where(func.lower(Student.email) == semail.lower()))
+                if s:
+                    db.delete(s)
+            for sname in [STUDENT_NEW_NAME, STUDENT_ACTIVE_NAME, "Demo New Student (new@folio.demo)", "Demo Active Student (active@folio.demo)"]:
                 s = db.scalar(select(Student).where(Student.name == sname))
                 if s:
                     db.delete(s)
@@ -101,7 +148,9 @@ def seed_demo(base_url: str, material_dir_path: str, reset: bool) -> None:
     with SessionLocal() as db:
         existing_course = db.scalar(select(Course).where(Course.name == DEMO_COURSE_NAME))
         existing_active_student = db.scalar(
-            select(Student).where(Student.name == STUDENT_ACTIVE_NAME)
+            select(Student).where(
+                (Student.name == STUDENT_ACTIVE_NAME) | (func.lower(Student.email) == STUDENT_ACTIVE_EMAIL.lower())
+            )
         )
         if existing_course and existing_active_student and not reset:
             print(f"[Seed] Demo course already exists (ID: {existing_course.id}).")
@@ -110,7 +159,17 @@ def seed_demo(base_url: str, material_dir_path: str, reset: bool) -> None:
             _print_summary(existing_course.id, existing_active_student.id, base_url)
             return
 
-    # 3. Create Demo Course
+    # 3. Create or authenticate demo students
+    print("[Seed] Authenticating demo students...")
+    s2_id, s2_token = get_or_create_student(client, STUDENT_ACTIVE_NAME, STUDENT_ACTIVE_EMAIL)
+    s1_id, s1_token = get_or_create_student(client, STUDENT_NEW_NAME, STUDENT_NEW_EMAIL)
+    print(f"[Seed] Demo Active Student ID: {s2_id}")
+    print(f"[Seed] Demo New Student ID: {s1_id}")
+
+    # Set active student token for subsequent course and content creation
+    client.set_token(s2_token)
+
+    # 4. Create Demo Course
     print("[Seed] Creating demo course 'Introduction to Classical Mechanics' (PHYS101)...")
     res = client.post(
         "/api/v1/courses",
@@ -125,7 +184,7 @@ def seed_demo(base_url: str, material_dir_path: str, reset: bool) -> None:
     course_id = course_data["id"]
     print(f"[Seed] Course created with ID: {course_id}")
 
-    # 4. Upload sample materials
+    # 5. Upload sample materials
     sample_files = [
         "sample.pdf",
         "sample.pptx",
@@ -203,25 +262,7 @@ def seed_demo(base_url: str, material_dir_path: str, reset: bool) -> None:
                 break
         time.sleep(1.0)
 
-    # 6. Create Demo Students
-    print("[Seed] Creating Demo Students...")
-    # Student 1: Demo New Student
-    s1_res = client.post(
-        "/api/v1/students",
-        json={"name": STUDENT_NEW_NAME},
-    )
-    s1_id = s1_res.json()["id"]
-    print(f"[Seed] Created Demo New Student (ID: {s1_id})")
-
-    # Student 2: Demo Active Student
-    s2_res = client.post(
-        "/api/v1/students",
-        json={"name": STUDENT_ACTIVE_NAME},
-    )
-    s2_id = s2_res.json()["id"]
-    print(f"[Seed] Created Demo Active Student (ID: {s2_id})")
-
-    # 7. Seed 10-14 days of realistic activity for Student 2
+    # 6. Seed 10-14 days of realistic activity for Student 2
     print("[Seed] Generating realistic 14-day history for Student 2...")
     with SessionLocal() as db:
         topics = list(db.scalars(select(Topic).where(Topic.course_id == course_id)).all())
@@ -518,21 +559,25 @@ def _print_summary(course_id: int, active_student_id: int, base_url: str, new_st
     print("=" * 60)
     print(f"Course ID:         {course_id} (PHYS101)")
     if new_student_id:
-        print(f"New Student ID:    {new_student_id} (new@folio.demo)")
-    print(f"Active Student ID: {active_student_id} (active@folio.demo)")
+        print(f"New Student ID:    {new_student_id} (demo.new@folio.demo)")
+    print(f"Active Student ID: {active_student_id} (demo.active@folio.demo)")
     print(f"Total Topics:      {topics_count}")
     print(f"Total Chunks:      {chunks_count}")
     print(f"Conversations:     {[c.id for c in convs]}")
-    print("\nTry testing live endpoints with these curl commands:")
-    print(f"1. New student dashboard (empty state -> take_diagnostic):")
+    print("\nCredentials:")
+    print("  - Demo New Student:    demo.new@folio.demo    / Demo@1234")
+    print("  - Demo Active Student: demo.active@folio.demo / Demo@1234")
+    print("\nTry testing live endpoints (login first to get TOKEN):")
+    print(f"  TOKEN=$(curl -s -X POST {base_url}/api/v1/auth/login -H 'Content-Type: application/json' -d '{{\"email\":\"demo.active@folio.demo\",\"password\":\"Demo@1234\"}}' | jq -r .access_token)")
+    print(f"1. New student dashboard:")
     if new_student_id:
-        print(f"   curl -s {base_url}/api/v1/students/{new_student_id}/dashboard?course_id={course_id} | jq .")
-    print(f"2. Active student rich dashboard (mastery breakdown, streak, activity feed):")
-    print(f"   curl -s {base_url}/api/v1/students/{active_student_id}/dashboard?course_id={course_id} | jq .")
+        print(f"   curl -s {base_url}/api/v1/students/{new_student_id}/courses/{course_id}/dashboard -H \"Authorization: Bearer $TOKEN\" | jq .")
+    print(f"2. Active student rich dashboard:")
+    print(f"   curl -s {base_url}/api/v1/students/{active_student_id}/courses/{course_id}/dashboard -H \"Authorization: Bearer $TOKEN\" | jq .")
     print(f"3. Active student next recommended action:")
-    print(f"   curl -s {base_url}/api/v1/students/{active_student_id}/recommendations?course_id={course_id} | jq .")
-    print(f"4. Active student 7-day study plan:")
-    print(f"   curl -s {base_url}/api/v1/students/{active_student_id}/study-plan?course_id={course_id}&days=7 | jq .")
+    print(f"   curl -s {base_url}/api/v1/students/{active_student_id}/courses/{course_id}/recommendations -H \"Authorization: Bearer $TOKEN\" | jq .")
+    print(f"4. Active student study plan:")
+    print(f"   curl -s \"{base_url}/api/v1/students/{active_student_id}/courses/{course_id}/study-plan?minutes_per_day=45\" -H \"Authorization: Bearer $TOKEN\" | jq .")
     print("=" * 60 + "\n")
 
 

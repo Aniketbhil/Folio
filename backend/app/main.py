@@ -10,7 +10,20 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 import app.models  # noqa: F401 - ensure all models are registered on Base.metadata
-from app.api.routes import assessments, chunks, courses, dev, health, kb, learner, meta, sources, students, tutor
+from app.api.routes import (
+    assessments,
+    auth,
+    chunks,
+    courses,
+    dev,
+    health,
+    kb,
+    learner,
+    meta,
+    sources,
+    students,
+    tutor,
+)
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.db.session import Base, SessionLocal, engine, run_sqlite_migrations
@@ -51,6 +64,16 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup and shutdown lifecycle handler for the application."""
     settings = get_settings()
+
+    # 0. Validate JWT Secret configuration
+    if settings.jwt_secret in ("", "change-me-in-.env"):
+        if not settings.debug:
+            logger.error("FATAL: JWT_SECRET is unconfigured ('%s') and DEBUG=false. Refusing to start.", settings.jwt_secret)
+            raise RuntimeError("JWT_SECRET must be configured with a secure value in production (DEBUG=false).")
+        logger.warning("=" * 80)
+        logger.warning("SECURITY WARNING: JWT_SECRET is set to default or empty ('%s')!", settings.jwt_secret)
+        logger.warning("Please configure JWT_SECRET with a strong random string before running in production.")
+        logger.warning("=" * 80)
 
     # 1. Ensure required storage directories exist
     upload_path = Path(settings.upload_dir)
@@ -142,6 +165,7 @@ def create_app() -> FastAPI:
     from fastapi import APIRouter
 
     api_v1_router = APIRouter(prefix="/api/v1")
+    api_v1_router.include_router(auth.router)
     api_v1_router.include_router(health.router)
     api_v1_router.include_router(meta.router)
     api_v1_router.include_router(students.router)

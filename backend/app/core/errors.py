@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, Optional
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -16,10 +16,12 @@ class AppError(Exception):
         message: str,
         code: str = "app_error",
         status_code: int = 400,
+        headers: Optional[dict[str, str]] = None,
     ) -> None:
         self.message = message
         self.code = code
         self.status_code = status_code
+        self.headers = headers
         super().__init__(message)
 
 
@@ -28,6 +30,7 @@ def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": {"code": exc.code, "message": exc.message}},
+        headers=exc.headers,
     )
 
 

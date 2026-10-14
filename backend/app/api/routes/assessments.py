@@ -1,10 +1,12 @@
 """Assessment creation, retrieval, listing, and deletion endpoints."""
 
+import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.errors import AppError
 from app.db.session import get_db
 from app.models.assessment import Assessment, Attempt, Question
@@ -22,7 +24,13 @@ from app.schemas.assessment import (
 from app.services.assessment.answering import AnswerService
 from app.services.assessment.reporting import build_report, submit_assessment
 from app.services.assessment.service import get_assessment_service
+from app.services.auth.dependencies import (
+    get_current_student,
+    resolve_student_id,
+)
 from app.services.vector_store import get_vector_store
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["assessments"])
 
@@ -35,14 +43,16 @@ router = APIRouter(tags=["assessments"])
 def create_assessment(
     course_id: int,
     payload: AssessmentCreate,
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> AssessmentOut:
     """Create a new source-grounded assessment (quiz, mock exam, or diagnostic)."""
+    resolved_sid = resolve_student_id(current_student, payload.student_id)
     svc = get_assessment_service()
     return svc.create(
         db=db,
         course_id=course_id,
-        student_id=payload.student_id,
+        student_id=resolved_sid,
         kind=payload.kind,
         topic_ids=payload.topic_ids,
         num_questions=payload.num_questions,
@@ -59,16 +69,19 @@ def create_assessment(
 def create_or_resume_diagnostic(
     course_id: int,
     response: Response,
-    student_id: int = Query(..., description="Student ID taking the diagnostic"),
+    student_id: Optional[int] = Query(default=None, description="Student ID taking the diagnostic"),
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> AssessmentOut:
     """Create a diagnostic assessment or resume an existing in-progress diagnostic."""
+    resolved_sid = resolve_student_id(current_student, student_id)
+
     # Check if student already has an in-progress diagnostic for this course
     existing_in_progress = db.scalar(
         select(Assessment)
         .where(
             Assessment.course_id == course_id,
-            Assessment.student_id == student_id,
+            Assessment.student_id == resolved_sid,
             Assessment.kind == "diagnostic",
             Assessment.status == "in_progress",
         )
@@ -104,7 +117,7 @@ def create_or_resume_diagnostic(
     return svc.create(
         db=db,
         course_id=course_id,
-        student_id=student_id,
+        student_id=resolved_sid,
         kind="diagnostic",
         topic_ids=None,
         num_questions=None,
@@ -120,6 +133,7 @@ def create_or_resume_diagnostic(
 )
 def get_assessment(
     assessment_id: int,
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> AssessmentOut:
     """Retrieve assessment details and questions."""
@@ -131,18 +145,20 @@ def get_assessment(
             status_code=404,
         )
 
+    settings = get_settings()
+    if settings.auth_required and current_student:
+        if assessment.student_id != current_student.id:
+            raise AppError(
+                f"Assessment with id {assessment_id} not found",
+                code="assessment_not_found",
+                status_code=404,
+            )
+
     questions = list(
         db.scalars(
             select(Question)
             .where(Question.assessment_id == assessment_id)
             .order_by(Question.position.asc(), Question.id.asc())
-        ).all()
-    )
-
-    # Check answered status per question
-    attempt_question_ids = set(
-        db.scalars(
-            select(Attempt.question_id).where(Attempt.assessment_id == assessment_id)
         ).all()
     )
 
@@ -165,16 +181,38 @@ def submit_question_answer(
     assessment_id: int,
     question_id: int,
     payload: AnswerSubmitRequest,
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> AnswerSubmitResponse:
     """Submit and grade an answer for a single assessment question."""
+    assessment = db.get(Assessment, assessment_id)
+    if not assessment:
+        raise AppError(
+            f"Assessment with id {assessment_id} not found",
+            code="assessment_not_found",
+            status_code=404,
+        )
+
+    settings = get_settings()
+    if settings.auth_required and current_student:
+        if assessment.student_id != current_student.id:
+            raise AppError(
+                f"Assessment with id {assessment_id} not found",
+                code="assessment_not_found",
+                status_code=404,
+            )
+
+    resolved_sid = resolve_student_id(current_student, payload.student_id)
+    if resolved_sid != assessment.student_id:
+        raise AppError("You can only access your own data.", code="forbidden_student", status_code=403)
+
     return AnswerService.submit_answer(
         db=db,
         assessment_id=assessment_id,
         question_id=question_id,
         answer=payload.answer,
         time_taken_sec=payload.time_taken_sec,
-        student_id=payload.student_id,
+        student_id=resolved_sid,
     )
 
 
@@ -185,9 +223,27 @@ def submit_question_answer(
 )
 def submit_assessment_route(
     assessment_id: int,
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> AssessmentReportResponse:
     """Submit an in-progress assessment and receive full performance report."""
+    assessment = db.get(Assessment, assessment_id)
+    if not assessment:
+        raise AppError(
+            f"Assessment with id {assessment_id} not found",
+            code="assessment_not_found",
+            status_code=404,
+        )
+
+    settings = get_settings()
+    if settings.auth_required and current_student:
+        if assessment.student_id != current_student.id:
+            raise AppError(
+                f"Assessment with id {assessment_id} not found",
+                code="assessment_not_found",
+                status_code=404,
+            )
+
     return submit_assessment(db=db, assessment_id=assessment_id)
 
 
@@ -198,6 +254,7 @@ def submit_assessment_route(
 )
 def get_assessment_report(
     assessment_id: int,
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> AssessmentReportResponse:
     """Retrieve full performance report for a submitted assessment."""
@@ -208,6 +265,16 @@ def get_assessment_report(
             code="assessment_not_found",
             status_code=404,
         )
+
+    settings = get_settings()
+    if settings.auth_required and current_student:
+        if assessment.student_id != current_student.id:
+            raise AppError(
+                f"Assessment with id {assessment_id} not found",
+                code="assessment_not_found",
+                status_code=404,
+            )
+
     return build_report(db=db, assessment=assessment)
 
 
@@ -217,9 +284,10 @@ def get_assessment_report(
 )
 def list_course_assessments(
     course_id: int,
-    student_id: int = Query(..., description="Student ID"),
+    student_id: Optional[int] = Query(default=None, description="Student ID"),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> List[AssessmentListItem]:
     """List assessments for a course and student, ordered newest first."""
@@ -231,10 +299,11 @@ def list_course_assessments(
             status_code=404,
         )
 
-    student = db.get(Student, student_id)
+    resolved_sid = resolve_student_id(current_student, student_id)
+    student = db.get(Student, resolved_sid)
     if not student:
         raise AppError(
-            f"Student with id {student_id} not found",
+            f"Student with id {resolved_sid} not found",
             code="student_not_found",
             status_code=404,
         )
@@ -244,7 +313,7 @@ def list_course_assessments(
             select(Assessment)
             .where(
                 Assessment.course_id == course_id,
-                Assessment.student_id == student_id,
+                Assessment.student_id == resolved_sid,
             )
             .order_by(Assessment.created_at.desc(), Assessment.id.desc())
             .limit(limit)
@@ -292,6 +361,7 @@ def list_course_assessments(
 )
 def delete_assessment(
     assessment_id: int,
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> AssessmentDeleteResponse:
     """Delete an assessment and its questions and question vectors."""
@@ -302,6 +372,15 @@ def delete_assessment(
             code="assessment_not_found",
             status_code=404,
         )
+
+    settings = get_settings()
+    if settings.auth_required and current_student:
+        if assessment.student_id != current_student.id:
+            raise AppError(
+                f"Assessment with id {assessment_id} not found",
+                code="assessment_not_found",
+                status_code=404,
+            )
 
     # Delete from DB (cascade removes questions and attempts)
     db.delete(assessment)

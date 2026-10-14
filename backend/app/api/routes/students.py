@@ -1,12 +1,17 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.errors import AppError
 from app.db.session import get_db
+from app.models.course import Course
+from app.models.mastery import Mastery
 from app.models.student import Student
-from app.schemas.student import StudentCreate, StudentRead
+from app.models.topic import Topic
+from app.schemas.student import StudentCourseActivityOut, StudentCreate, StudentRead
+from app.services.auth.dependencies import get_current_student, require_same_student
 
 router = APIRouter(prefix="/students", tags=["Students"])
 
@@ -16,7 +21,11 @@ def create_student(
     payload: StudentCreate,
     db: Session = Depends(get_db),
 ) -> Student:
-    """Create a new student profile."""
+    """Create a new student profile (DEBUG only)."""
+    settings = get_settings()
+    if not settings.debug:
+        raise AppError("Not found", code="not_found", status_code=404)
+
     name = payload.name.strip()
     if not name:
         raise AppError(message="Student name cannot be empty", code="validation_error", status_code=422)
@@ -32,7 +41,11 @@ def create_student(
 def list_students(
     db: Session = Depends(get_db),
 ) -> List[Student]:
-    """List all registered students."""
+    """List all registered students (DEBUG only)."""
+    settings = get_settings()
+    if not settings.debug:
+        raise AppError("Not found", code="not_found", status_code=404)
+
     stmt = select(Student).order_by(Student.id.asc())
     return list(db.scalars(stmt).all())
 
@@ -40,14 +53,11 @@ def list_students(
 @router.get("/{student_id}", response_model=StudentRead)
 def get_student(
     student_id: int,
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> StudentRead:
-    """Get student profile by ID with active course summaries."""
-    from sqlalchemy import func
-    from app.models.course import Course
-    from app.models.mastery import Mastery
-    from app.models.topic import Topic
-    from app.schemas.student import StudentCourseActivityOut
+    """Get student profile by ID with active course summaries (own account only)."""
+    require_same_student(current_student, student_id)
 
     student = db.get(Student, student_id)
     if not student:
@@ -89,17 +99,20 @@ def get_student(
     )
 
 
-@router.delete("/{student_id}")
+@router.delete("/{student_id}", response_model=dict)
 def delete_student(
     student_id: int,
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Delete a student and cascade-remove all their conversations, assessments, and mastery records."""
+    """Delete a student and cascade-remove all their conversations, assessments, and mastery records (own account only)."""
     from sqlalchemy import delete
     from app.models.assessment import Assessment, Attempt, Question
     from app.models.conversation import Conversation, Message
     from app.models.mastery import Mastery, MasteryEvent
     from app.services.vector_store import get_vector_store
+
+    require_same_student(current_student, student_id)
 
     student = db.get(Student, student_id)
     if not student:

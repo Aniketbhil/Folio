@@ -4,9 +4,11 @@ from fastapi import APIRouter
 
 from app.core.config import get_settings
 from app.schemas.meta import (
+    MetaAuth,
     MetaEnums,
     MetaFeatures,
     MetaLimits,
+    MetaPasswordRules,
     MetaResponse,
     MetaThresholds,
 )
@@ -68,10 +70,23 @@ def get_metadata() -> MetaResponse:
         llm_mode="mock" if settings.llm_mock else "live",
     )
 
+    auth = MetaAuth(
+        required=settings.auth_required,
+        password_rules=MetaPasswordRules(
+            min_length=8,
+            max_length=128,
+            require_uppercase=True,
+            require_lowercase=True,
+            require_symbol=True,
+        ),
+        token_type="bearer",
+    )
+
     return MetaResponse(
         version="0.1.0",
         enums=enums,
         thresholds=thresholds,
         limits=limits,
         features=features,
+        auth=auth,
     )

@@ -1,16 +1,30 @@
+import os
 import sys
+import tempfile
 from pathlib import Path
-from fastapi.testclient import TestClient
 
 backend_dir = Path(__file__).resolve().parent.parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
-from app.main import app
+# Configure isolated environment before importing application
+TEMP_DIR = tempfile.mkdtemp(prefix="folio_ingest_verify_")
+os.environ["DATABASE_URL"] = f"sqlite:///{TEMP_DIR}/test.db"
+os.environ["CHROMA_DIR"] = f"{TEMP_DIR}/chroma"
+os.environ["UPLOAD_DIR"] = f"{TEMP_DIR}/uploads"
+os.environ["LLM_MOCK"] = "true"
+os.environ["DEBUG"] = "true"
+os.environ["AUTO_BUILD_KB"] = "true"
+os.environ["AUTH_REQUIRED"] = "false"
+
+from fastapi.testclient import TestClient
+from app.main import create_app
 
 def run_verification():
     samples_dir = Path(__file__).resolve().parent.parent / "samples"
+    app = create_app()
     client = TestClient(app)
+    client.__enter__()
 
     print("=" * 80)
     print("FOLIO BACKEND - PROMPT 2 INGESTION VERIFICATION")

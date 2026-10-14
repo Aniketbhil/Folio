@@ -67,7 +67,7 @@ class QuestionOut(BaseModel):
 class AssessmentCreate(BaseModel):
     """Request payload to create a new assessment."""
 
-    student_id: int
+    student_id: Optional[int] = None
     kind: str = "quiz"  # "quiz" | "mock_exam" | "diagnostic"
     topic_ids: Optional[List[int]] = None
     num_questions: Optional[int] = None

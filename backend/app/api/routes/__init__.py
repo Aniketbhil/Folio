@@ -1,4 +1,4 @@
-from app.api.routes import assessments, chunks, courses, dev, health, kb, learner, sources, students, tutor
+from app.api.routes import assessments, auth, chunks, courses, dev, health, kb, learner, meta, sources, students, tutor
 
-__all__ = ["assessments", "chunks", "courses", "dev", "health", "kb", "learner", "sources", "students", "tutor"]
+__all__ = ["assessments", "auth", "chunks", "courses", "dev", "health", "kb", "learner", "meta", "sources", "students", "tutor"]
 

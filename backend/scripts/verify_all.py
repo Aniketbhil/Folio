@@ -18,10 +18,13 @@ TEST_SUITES = [
     ("verify_learner.py", "Prompt 7: Personalization, Dashboard & Decay"),
     ("verify_final.py", "Prompt 8: Production Hardening & Evaluation"),
     ("verify_llm_contract.py", "Regression: Live LLM Contract & Signatures"),
+    ("verify_auth.py", "Prompt 9: Authentication & Security"),
 ]
 
 
 def run_all_suites() -> None:
+    import os
+    os.environ["AUTH_REQUIRED"] = "false"
     print("=" * 80)
     print("FOLIO BACKEND — RUNNING COMPLETE TEST AND VERIFICATION SUITE")
     print("=" * 80 + "\n")

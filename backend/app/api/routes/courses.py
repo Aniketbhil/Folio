@@ -15,9 +15,10 @@ from app.schemas.course import (
     CourseDetailRead,
     CourseRead,
 )
+from app.services.auth.dependencies import get_current_student
 from app.services.course_service import delete_course
 
-router = APIRouter(prefix="/courses", tags=["Courses"])
+router = APIRouter(prefix="/courses", tags=["Courses"], dependencies=[Depends(get_current_student)])
 
 
 @router.post("", response_model=CourseRead, status_code=status.HTTP_201_CREATED)

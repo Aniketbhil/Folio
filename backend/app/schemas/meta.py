@@ -40,9 +40,24 @@ class MetaFeatures(BaseModel):
     llm_mode: str
 
 
+class MetaPasswordRules(BaseModel):
+    min_length: int = 8
+    max_length: int = 128
+    require_uppercase: bool = True
+    require_lowercase: bool = True
+    require_symbol: bool = True
+
+
+class MetaAuth(BaseModel):
+    required: bool
+    password_rules: MetaPasswordRules = MetaPasswordRules()
+    token_type: str = "bearer"
+
+
 class MetaResponse(BaseModel):
     version: str
     enums: MetaEnums
     thresholds: MetaThresholds
     limits: MetaLimits
     features: MetaFeatures
+    auth: MetaAuth

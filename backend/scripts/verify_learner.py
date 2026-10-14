@@ -55,6 +55,7 @@ os.environ["UPLOAD_DIR"] = str(test_upload_path)
 os.environ["LLM_MOCK"] = "true"
 os.environ["AUTO_BUILD_KB"] = "true"
 os.environ["DEBUG"] = "true"
+os.environ["AUTH_REQUIRED"] = "false"
 
 from fastapi.testclient import TestClient
 from sqlalchemy import event, func, select
@@ -538,7 +539,8 @@ def main() -> None:
         # -------------------------------------------------------------
         # CHECK 13: Study plan generation and horizon rules
         # -------------------------------------------------------------
-        exam_target = (date.today() + timedelta(days=5)).isoformat()
+        today_utc = datetime.now(timezone.utc).date()
+        exam_target = (today_utc + timedelta(days=5)).isoformat()
         plan_5days = client.get(
             f"/api/v1/students/{stu1_id}/courses/{crs1_id}/study-plan?exam_date={exam_target}&minutes_per_day=45"
         )
@@ -550,7 +552,7 @@ def main() -> None:
         minutes_under_45 = all(d["total_minutes"] <= 45 for d in p5_data["days"])
 
         # Past exam date -> 422
-        past_target = (date.today() - timedelta(days=2)).isoformat()
+        past_target = (today_utc - timedelta(days=2)).isoformat()
         plan_past = client.get(
             f"/api/v1/students/{stu1_id}/courses/{crs1_id}/study-plan?exam_date={past_target}&minutes_per_day=45"
         )

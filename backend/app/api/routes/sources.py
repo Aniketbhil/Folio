@@ -15,10 +15,11 @@ from app.models.source import Chunk, Source
 from app.models.topic import ChunkConcept, ChunkTopic, Concept, Topic, TopicPrereq
 from app.schemas.source import ChunkRead, SourceDeleteResponse, SourceRead
 from app.services.ingestion.pipeline import run_ingestion
+from app.services.auth.dependencies import get_current_student
 from app.services.kb.service import get_kb_service
 from app.services.vector_store import get_vector_store
 
-router = APIRouter(tags=["sources"])
+router = APIRouter(tags=["sources"], dependencies=[Depends(get_current_student)])
 
 ALLOWED_EXTENSIONS = {
     ".pdf": "pdf",

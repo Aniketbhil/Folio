@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.errors import AppError
 from app.db.session import get_db
 from app.models.conversation import Conversation, Message
@@ -18,6 +19,10 @@ from app.schemas.tutor import (
     RelatedTopicItem,
     TutorResponse,
 )
+from app.services.auth.dependencies import (
+    get_current_student,
+    resolve_student_id,
+)
 from app.services.tutor.service import get_tutor_service
 
 router = APIRouter(tags=["tutor"])
@@ -31,6 +36,7 @@ router = APIRouter(tags=["tutor"])
 def create_conversation(
     course_id: int,
     payload: ConversationCreate,
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> ConversationRead:
     """Create a new chat conversation session for a course."""
@@ -42,10 +48,11 @@ def create_conversation(
             status_code=404,
         )
 
-    student = db.get(Student, payload.student_id)
+    resolved_sid = resolve_student_id(current_student, payload.student_id)
+    student = db.get(Student, resolved_sid)
     if not student:
         raise AppError(
-            f"Student with id {payload.student_id} not found",
+            f"Student with id {resolved_sid} not found",
             code="student_not_found",
             status_code=404,
         )
@@ -54,7 +61,7 @@ def create_conversation(
 
     conversation = Conversation(
         course_id=course_id,
-        student_id=payload.student_id,
+        student_id=resolved_sid,
         title=title,
     )
     db.add(conversation)
@@ -77,9 +84,10 @@ def create_conversation(
 )
 def list_course_conversations(
     course_id: int,
-    student_id: int = Query(..., description="Student ID to filter conversations"),
+    student_id: Optional[int] = Query(default=None, description="Student ID to filter conversations"),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> List[ConversationListItem]:
     """List conversations for a course and student, ordered newest first."""
@@ -91,10 +99,11 @@ def list_course_conversations(
             status_code=404,
         )
 
-    student = db.get(Student, student_id)
+    resolved_sid = resolve_student_id(current_student, student_id)
+    student = db.get(Student, resolved_sid)
     if not student:
         raise AppError(
-            f"Student with id {student_id} not found",
+            f"Student with id {resolved_sid} not found",
             code="student_not_found",
             status_code=404,
         )
@@ -104,7 +113,7 @@ def list_course_conversations(
             select(Conversation)
             .where(
                 Conversation.course_id == course_id,
-                Conversation.student_id == student_id,
+                Conversation.student_id == resolved_sid,
             )
             .order_by(Conversation.created_at.desc(), Conversation.id.desc())
             .limit(limit)
@@ -149,6 +158,7 @@ def list_course_conversations(
 )
 def get_conversation(
     conversation_id: int,
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> ConversationRead:
     """Retrieve conversation details and message count."""
@@ -159,6 +169,15 @@ def get_conversation(
             code="conversation_not_found",
             status_code=404,
         )
+
+    settings = get_settings()
+    if settings.auth_required and current_student:
+        if conv.student_id != current_student.id:
+            raise AppError(
+                f"Conversation with id {conversation_id} not found",
+                code="conversation_not_found",
+                status_code=404,
+            )
 
     msg_count = (
         db.scalar(
@@ -187,6 +206,7 @@ def get_conversation_messages(
     conversation_id: int,
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> List[MessageRead]:
     """Retrieve message history for a conversation, ordered oldest first."""
@@ -197,6 +217,15 @@ def get_conversation_messages(
             code="conversation_not_found",
             status_code=404,
         )
+
+    settings = get_settings()
+    if settings.auth_required and current_student:
+        if conv.student_id != current_student.id:
+            raise AppError(
+                f"Conversation with id {conversation_id} not found",
+                code="conversation_not_found",
+                status_code=404,
+            )
 
     messages = list(
         db.scalars(
@@ -244,6 +273,7 @@ def get_conversation_messages(
 def send_conversation_message(
     conversation_id: int,
     payload: MessageCreate,
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> TutorResponse:
     """Send a student question to the AI tutor and receive a source-grounded response."""
@@ -255,7 +285,17 @@ def send_conversation_message(
             status_code=404,
         )
 
-    if conv.student_id != payload.student_id:
+    settings = get_settings()
+    if settings.auth_required and current_student:
+        if conv.student_id != current_student.id:
+            raise AppError(
+                f"Conversation with id {conversation_id} not found",
+                code="conversation_not_found",
+                status_code=404,
+            )
+
+    resolved_sid = resolve_student_id(current_student, payload.student_id)
+    if conv.student_id != resolved_sid:
         raise AppError(
             "Student does not have access to this conversation",
             code="forbidden_student",
@@ -266,7 +306,7 @@ def send_conversation_message(
     return tutor.answer(
         db=db,
         conversation=conv,
-        student_id=payload.student_id,
+        student_id=resolved_sid,
         content=payload.content,
         topic_ids=payload.topic_ids,
     )
@@ -278,6 +318,7 @@ def send_conversation_message(
 )
 def delete_conversation(
     conversation_id: int,
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> ConversationDeleteResponse:
     """Delete conversation and all its messages (cascade)."""
@@ -288,6 +329,15 @@ def delete_conversation(
             code="conversation_not_found",
             status_code=404,
         )
+
+    settings = get_settings()
+    if settings.auth_required and current_student:
+        if conv.student_id != current_student.id:
+            raise AppError(
+                f"Conversation with id {conversation_id} not found",
+                code="conversation_not_found",
+                status_code=404,
+            )
 
     db.delete(conv)
     db.commit()

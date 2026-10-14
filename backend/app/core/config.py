@@ -84,6 +84,12 @@ class Settings(BaseSettings):
     image_min_px: int = Field(default=150, description="Min width/height in px for captioning")
     eval_judge_model: Optional[str] = Field(default=None, description="Model to use as evaluation judge (fallback llm_model)")
     eval_out_dir: str = Field(default="./eval/results", description="Output directory for eval results")
+    auth_required: bool = Field(default=True, description="Require authentication for protected endpoints")
+    jwt_secret: str = Field(default="change-me-in-.env", description="Secret key for JWT signing")
+    jwt_algorithm: str = Field(default="HS256", description="Algorithm for JWT signing")
+    jwt_expire_minutes: int = Field(default=10080, description="JWT expiration in minutes (7 days default)")
+    auth_max_failed_attempts: int = Field(default=5, description="Maximum failed login attempts before lockout")
+    auth_lockout_minutes: int = Field(default=15, description="Lockout duration in minutes")
 
     @property
     def parsed_cors_origins(self) -> List[str]:

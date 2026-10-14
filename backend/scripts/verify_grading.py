@@ -45,6 +45,7 @@ os.environ["UPLOAD_DIR"] = str(test_upload_path)
 os.environ["LLM_MOCK"] = "true"
 os.environ["AUTO_BUILD_KB"] = "true"
 os.environ["DEBUG"] = "true"
+os.environ["AUTH_REQUIRED"] = "false"
 
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select

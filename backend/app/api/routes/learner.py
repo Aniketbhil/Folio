@@ -19,6 +19,7 @@ from app.models.source import Chunk
 from app.models.student import Student
 from app.models.topic import ChunkTopic, Topic
 from app.schemas.citation import Citation
+from app.services.auth.dependencies import get_current_student, require_same_student
 from app.schemas.learner import (
     ActivityHistoryItem,
     ActivityOut,
@@ -99,9 +100,12 @@ def get_course_mastery(
     student_id: int,
     course_id: int,
     tz_offset_min: int = Query(default=0, ge=-840, le=840),
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> CourseMasteryResponse:
     """Retrieve full course topic breakdown with effective decayed mastery and trends."""
+    require_same_student(current_student, student_id)
+
     state = load_student_course_state(
         db=db,
         student_id=student_id,
@@ -175,9 +179,12 @@ def get_topic_mastery_history(
     topic_id: int,
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> TopicMasteryHistoryResponse:
     """Retrieve chronological mastery change history for a single leaf topic."""
+    require_same_student(current_student, student_id)
+
     student = db.get(Student, student_id)
     if not student:
         raise AppError(f"Student {student_id} not found", code="student_not_found", status_code=404)
@@ -229,9 +236,12 @@ def get_learner_dashboard(
     student_id: int,
     course_id: int,
     tz_offset_min: int = Query(default=0, ge=-840, le=840),
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> DashboardResponse:
     """Retrieve comprehensive learner dashboard with weak/strong topics, activity, and next action."""
+    require_same_student(current_student, student_id)
+
     settings = get_settings()
 
     state = load_student_course_state(
@@ -554,9 +564,12 @@ def get_recommendations(
     course_id: int,
     limit: int = Query(default=5, ge=1, le=5),
     tz_offset_min: int = Query(default=0, ge=-840, le=840),
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> List[RecommendationOut]:
     """Retrieve prioritized next study actions with grounded citations."""
+    require_same_student(current_student, student_id)
+
     settings = get_settings()
 
     state = load_student_course_state(
@@ -635,9 +648,12 @@ def get_activity_history(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     kind: str = Query(default="all", pattern="^(attempts|assessments|all)$"),
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> List[ActivityHistoryItem]:
     """Retrieve combined chronological activity stream of attempts and assessments."""
+    require_same_student(current_student, student_id)
+
     student = db.get(Student, student_id)
     if not student:
         raise AppError(f"Student {student_id} not found", code="student_not_found", status_code=404)
@@ -721,9 +737,12 @@ def get_study_plan(
     exam_date: Optional[str] = Query(default=None),
     minutes_per_day: int = Query(default=45, ge=15, le=480),
     tz_offset_min: int = Query(default=0, ge=-840, le=840),
+    current_student: Optional[Student] = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> StudyPlanResponseOut:
     """Generate a calendarized study plan based on exam horizon and student mastery need."""
+    require_same_student(current_student, student_id)
+
     student = db.get(Student, student_id)
     if not student:
         raise AppError(f"Student {student_id} not found", code="student_not_found", status_code=404)

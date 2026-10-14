@@ -22,10 +22,11 @@ from app.schemas.kb import (
     TopicDetailResponse,
     TopicTreeNode,
 )
+from app.services.auth.dependencies import get_current_student
 from app.services.citations import build_citation
 from app.services.kb.service import get_kb_service
 
-router = APIRouter(tags=["knowledge-base"])
+router = APIRouter(tags=["knowledge-base"], dependencies=[Depends(get_current_student)])
 
 
 @router.get("/courses/{course_id}/kb/status", response_model=KBStatusResponse)

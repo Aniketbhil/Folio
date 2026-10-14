@@ -1,4 +1,12 @@
 from app.schemas.common import ErrorDetail, ErrorResponse, HealthResponse
+from app.schemas.auth import (
+    SignupRequest,
+    LoginRequest,
+    AuthStudent,
+    AuthResponse,
+    ChangePasswordRequest,
+    ChangePasswordResponse,
+)
 from app.schemas.student import StudentCreate, StudentRead
 from app.schemas.course import (
     CourseCreate,

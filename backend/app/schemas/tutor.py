@@ -17,7 +17,7 @@ class RelatedTopicItem(BaseModel):
 
 
 class ConversationCreate(BaseModel):
-    student_id: int
+    student_id: Optional[int] = None
     title: Optional[str] = None
 
 
@@ -44,7 +44,7 @@ class ConversationListItem(BaseModel):
 
 class MessageCreate(BaseModel):
     content: str = Field(..., min_length=1, max_length=2000)
-    student_id: int
+    student_id: Optional[int] = None
     topic_ids: Optional[List[int]] = None
 
 

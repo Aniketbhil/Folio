@@ -28,6 +28,7 @@ os.environ["GEMINI_API_KEY"] = "fake_contract_test_key"
 os.environ["DEBUG"] = "true"
 os.environ["AUTO_BUILD_KB"] = "false"
 os.environ["LLM_TIMEOUT_SEC"] = "60"
+os.environ["AUTH_REQUIRED"] = "false"
 
 Path(f"{TEMP_DIR}/chroma").mkdir(parents=True, exist_ok=True)
 Path(f"{TEMP_DIR}/uploads").mkdir(parents=True, exist_ok=True)
