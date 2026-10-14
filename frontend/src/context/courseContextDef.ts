@@ -15,7 +15,7 @@ export interface CourseContextValue {
   error: string | null
   setActiveCourseId: (id: number | null) => void
   refreshCourses: () => Promise<void>
-  refreshActiveCourseDetail: () => Promise<void>
+  refreshActiveCourseDetail: (targetId?: number | null) => Promise<void>
   addCourse: (payload: CourseCreate) => Promise<CourseRead>
   removeCourse: (id: number) => Promise<void>
 }

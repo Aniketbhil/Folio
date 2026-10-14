@@ -77,7 +77,49 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [])
 
-  // Manual refresh callable by UI
+  // Manual refresh for course details
+  const refreshActiveCourseDetail = useCallback(
+    async (targetId?: number | null): Promise<void> => {
+      const idToFetch = targetId !== undefined ? targetId : activeCourseId
+      if (idToFetch === null) {
+        setActiveCourseDetail(null)
+        return
+      }
+
+      setIsLoadingDetail(true)
+      try {
+        const detail = await getCourseDetail(idToFetch)
+        // Guard against race conditions: only update activeCourseDetail if still the active course
+        setActiveCourseIdState((currentId) => {
+          if (currentId === idToFetch) {
+            setActiveCourseDetail(detail)
+          }
+          return currentId
+        })
+        // Synchronize the course's kb_status and metadata in the courses list
+        setCourses((prev) =>
+          prev.map((c) =>
+            c.id === idToFetch
+              ? {
+                  ...c,
+                  kb_status: detail.kb_status,
+                  kb_error: detail.kb_error,
+                  kb_built_at: detail.kb_built_at,
+                }
+              : c
+          )
+        )
+      } catch (err) {
+        // Do not silently overwrite valid metrics with zero/null if network request fails
+        console.error('Failed to refresh course detail', err)
+      } finally {
+        setIsLoadingDetail(false)
+      }
+    },
+    [activeCourseId]
+  )
+
+  // Manual refresh callable by UI (refreshes course list AND active course detail)
   const refreshCourses = useCallback(async () => {
     setIsLoading(true)
     setError(null)
@@ -85,12 +127,17 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({
       const data = await listCourses()
       setCourses(data)
       syncActiveCourseWithList(data)
+
+      // Also refresh active course detail if a course is active
+      if (activeCourseId !== null) {
+        await refreshActiveCourseDetail(activeCourseId)
+      }
     } catch (err) {
       setError(formatApiError(err, 'Failed to load courses'))
     } finally {
       setIsLoading(false)
     }
-  }, [syncActiveCourseWithList])
+  }, [activeCourseId, refreshActiveCourseDetail, syncActiveCourseWithList])
 
   // Mount effect: fetch courses async
   useEffect(() => {
@@ -116,46 +163,42 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [syncActiveCourseWithList])
 
-  // Fetch course detail when activeCourseId changes
+  // Fetch course detail when activeCourseId changes with race-condition guard
   useEffect(() => {
     if (activeCourseId === null) {
-      return
+      const timer = window.setTimeout(() => {
+        setActiveCourseDetail(null)
+      }, 0)
+      return () => {
+        clearTimeout(timer)
+      }
     }
 
+    const currentTargetId = activeCourseId
     let isMounted = true
 
-    getCourseDetail(activeCourseId)
+    getCourseDetail(currentTargetId)
       .then((detail) => {
         if (isMounted) {
-          setActiveCourseDetail(detail)
+          setActiveCourseIdState((currentId) => {
+            if (currentId === currentTargetId) {
+              setActiveCourseDetail(detail)
+            }
+            return currentId
+          })
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error(`Failed to load initial course detail for #${currentTargetId}`, err)
+      })
+      .finally(() => {
         if (isMounted) {
-          setActiveCourseDetail(null)
+          setIsLoadingDetail(false)
         }
       })
 
     return () => {
       isMounted = false
-    }
-  }, [activeCourseId])
-
-  // Manual refresh for course details
-  const refreshActiveCourseDetail = useCallback(async () => {
-    if (activeCourseId === null) {
-      setActiveCourseDetail(null)
-      return
-    }
-
-    setIsLoadingDetail(true)
-    try {
-      const detail = await getCourseDetail(activeCourseId)
-      setActiveCourseDetail(detail)
-    } catch {
-      setActiveCourseDetail(null)
-    } finally {
-      setIsLoadingDetail(false)
     }
   }, [activeCourseId])
 

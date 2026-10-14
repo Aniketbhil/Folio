@@ -37,7 +37,13 @@ const ALLOWED_EXTENSIONS = ['.pdf', '.pptx', '.vtt', '.srt', '.txt', '.json']
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024 // 50MB
 
 export const SourcesPage: React.FC = () => {
-  const { courses, activeCourseId, activeCourseDetail, setActiveCourseId } = useCourse()
+  const {
+    courses,
+    activeCourseId,
+    activeCourseDetail,
+    setActiveCourseId,
+    refreshActiveCourseDetail,
+  } = useCourse()
   const fileInputId = useId()
 
   // Sources list state
@@ -76,6 +82,8 @@ export const SourcesPage: React.FC = () => {
 
   // Ref to cancel active polling on unmount
   const pollTimerRef = useRef<number | null>(null)
+  // Ref to detect when background processing transitions to complete
+  const wasProcessingRef = useRef(false)
 
   // Load sources for active course (for manual refresh / post-mutations)
   const fetchSources = useCallback(
@@ -160,12 +168,18 @@ export const SourcesPage: React.FC = () => {
       (s) => s.status === 'queued' || s.status === 'processing'
     )
     const isKbBuilding = kbStatus?.kb_status === 'building'
+    const isBusy = hasActiveSourceProcessing || isKbBuilding
 
-    if ((hasActiveSourceProcessing || isKbBuilding) && activeCourseId) {
+    if (isBusy && activeCourseId) {
+      wasProcessingRef.current = true
       pollTimerRef.current = window.setTimeout(() => {
         void fetchSources(true)
         void fetchKbStatus()
       }, 3000)
+    } else if (wasProcessingRef.current && activeCourseId) {
+      // Ingestion or KB build has just completed! Refresh course detail metrics
+      wasProcessingRef.current = false
+      void refreshActiveCourseDetail(activeCourseId)
     }
 
     return () => {
@@ -173,7 +187,7 @@ export const SourcesPage: React.FC = () => {
         clearTimeout(pollTimerRef.current)
       }
     }
-  }, [sources, kbStatus, activeCourseId, fetchSources, fetchKbStatus])
+  }, [sources, kbStatus, activeCourseId, fetchSources, fetchKbStatus, refreshActiveCourseDetail])
 
   // Handle file validation and selection
   const handleFileSelect = (file: File) => {
@@ -225,9 +239,12 @@ export const SourcesPage: React.FC = () => {
       setUploadTitle('')
       setUploadMediaUrl('')
       setIsUploadOpen(false)
-      // Refresh sources list and KB status
-      await fetchSources(false)
-      await fetchKbStatus()
+      // Refresh sources list, KB status, and CourseContext activeCourseDetail
+      await Promise.all([
+        fetchSources(false),
+        fetchKbStatus(),
+        refreshActiveCourseDetail(activeCourseId),
+      ])
     } catch (err: unknown) {
       setUploadError(err instanceof Error ? err.message : 'Upload failed.')
     } finally {
@@ -240,7 +257,11 @@ export const SourcesPage: React.FC = () => {
     setRetryingSourceId(sourceId)
     try {
       await retrySource(sourceId)
-      await fetchSources(true)
+      await Promise.all([
+        fetchSources(true),
+        fetchKbStatus(),
+        refreshActiveCourseDetail(activeCourseId),
+      ])
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Failed to retry ingestion.')
     } finally {
@@ -255,8 +276,11 @@ export const SourcesPage: React.FC = () => {
     try {
       await deleteSource(deletingSource.id)
       setDeletingSource(null)
-      await fetchSources(false)
-      await fetchKbStatus()
+      await Promise.all([
+        fetchSources(false),
+        fetchKbStatus(),
+        refreshActiveCourseDetail(activeCourseId),
+      ])
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Failed to delete source.')
     } finally {
@@ -275,7 +299,10 @@ export const SourcesPage: React.FC = () => {
         type: 'success',
         text: 'Knowledge base build queued. Indexing topics and concepts...',
       })
-      await fetchKbStatus()
+      await Promise.all([
+        fetchKbStatus(),
+        refreshActiveCourseDetail(activeCourseId),
+      ])
     } catch (err: unknown) {
       setKbMessage({
         type: 'error',
@@ -394,9 +421,12 @@ export const SourcesPage: React.FC = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                void fetchSources(false)
-                void fetchKbStatus()
+              onClick={async () => {
+                await Promise.all([
+                  fetchSources(false),
+                  fetchKbStatus(),
+                  refreshActiveCourseDetail(activeCourseId),
+                ])
               }}
               disabled={isLoadingSources || !activeCourseId}
               leftIcon={<RefreshCwIcon className={isLoadingSources ? 'animate-spin' : ''} />}

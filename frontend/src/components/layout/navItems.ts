@@ -23,34 +23,12 @@ export const MAIN_NAV_ITEMS: NavItem[] = [
   { id: 'students', label: 'Students', path: '/students', icon: UserIcon },
   { id: 'courses', label: 'Courses', path: '/courses', icon: BookOpenIcon },
   { id: 'sources', label: 'Sources', path: '/sources', icon: FileTextIcon },
+  { id: 'tutor', label: 'AI Tutor', path: '/tutor', icon: MessageSquareIcon },
+  { id: 'assessments', label: 'Assessments', path: '/assessments', icon: CheckCircleIcon },
+  { id: 'mastery', label: 'Mastery Graph', path: '/mastery', icon: ActivityIcon },
 ]
 
-export const UPCOMING_NAV_ITEMS: NavItem[] = [
-  {
-    id: 'tutor',
-    label: 'AI Tutor',
-    path: '/tutor',
-    icon: MessageSquareIcon,
-    badge: 'Soon',
-    disabled: true,
-  },
-  {
-    id: 'assessments',
-    label: 'Assessments',
-    path: '/assessments',
-    icon: CheckCircleIcon,
-    badge: 'Soon',
-    disabled: true,
-  },
-  {
-    id: 'mastery',
-    label: 'Knowledge & Mastery',
-    path: '/mastery',
-    icon: ActivityIcon,
-    badge: 'Soon',
-    disabled: true,
-  },
-]
+export const UPCOMING_NAV_ITEMS: NavItem[] = []
 
 export const ALL_NAV_ITEMS: NavItem[] = [
   ...MAIN_NAV_ITEMS,

@@ -20,6 +20,7 @@ export const CoursesPage: React.FC = () => {
     error,
     setActiveCourseId,
     refreshCourses,
+    refreshActiveCourseDetail,
     addCourse,
     removeCourse,
   } = useCourse()
@@ -124,10 +125,13 @@ export const CoursesPage: React.FC = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => void refreshCourses()}
-              disabled={isLoading}
-              title="Refresh courses from server"
-              leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />}
+              onClick={async () => {
+                await refreshCourses()
+                await refreshActiveCourseDetail()
+              }}
+              disabled={isLoading || isLoadingDetail}
+              title="Refresh courses and knowledge base metrics from server"
+              leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${isLoading || isLoadingDetail ? 'animate-spin' : ''}`} />}
             >
               Refresh
             </Button>

@@ -225,13 +225,13 @@ export const OverviewPage: React.FC = () => {
             </div>
           </Card>
 
-          <Card padding="md" variant="muted" className="space-y-2">
+          <Card padding="md" variant={isReady ? 'default' : 'muted'} className="space-y-2">
             <div className="flex items-center justify-between pb-1">
-              <div className="w-8 h-8 rounded-lg bg-surface-muted dark:bg-dark-muted flex items-center justify-center text-surface-text-muted dark:text-dark-text-muted">
+              <div className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-950/40 flex items-center justify-center text-brand-700 dark:text-brand-300">
                 <MessageSquareIcon className="w-4 h-4" />
               </div>
-              <Badge variant="neutral" size="sm">
-                Tutor
+              <Badge variant="brand" size="sm" dot>
+                Ready
               </Badge>
             </div>
             <CardTitle className="text-sm">AI Socratic Tutor</CardTitle>
@@ -239,19 +239,21 @@ export const OverviewPage: React.FC = () => {
               Conversational assistant strictly grounded in course materials with verbatim citations and follow-up prompts.
             </CardDescription>
             <div className="pt-2">
-              <span className="text-[11px] text-surface-text-muted dark:text-dark-text-muted font-medium">
-                Available in next chapter
-              </span>
+              <Link to="/tutor">
+                <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
+                  Open Tutor
+                </Button>
+              </Link>
             </div>
           </Card>
 
-          <Card padding="md" variant="muted" className="space-y-2">
+          <Card padding="md" variant={isReady ? 'default' : 'muted'} className="space-y-2">
             <div className="flex items-center justify-between pb-1">
-              <div className="w-8 h-8 rounded-lg bg-surface-muted dark:bg-dark-muted flex items-center justify-center text-surface-text-muted dark:text-dark-text-muted">
+              <div className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-950/40 flex items-center justify-center text-brand-700 dark:text-brand-300">
                 <CheckCircleIcon className="w-4 h-4" />
               </div>
-              <Badge variant="neutral" size="sm">
-                Quizzes
+              <Badge variant="brand" size="sm" dot>
+                Ready
               </Badge>
             </div>
             <CardTitle className="text-sm">Adaptive Assessments</CardTitle>
@@ -259,29 +261,33 @@ export const OverviewPage: React.FC = () => {
               Diagnostic tests and practice quizzes with instant Bayesian Knowledge Tracing feedback.
             </CardDescription>
             <div className="pt-2">
-              <span className="text-[11px] text-surface-text-muted dark:text-dark-text-muted font-medium">
-                Available in next chapter
-              </span>
+              <Link to="/assessments">
+                <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
+                  Start Assessments
+                </Button>
+              </Link>
             </div>
           </Card>
 
-          <Card padding="md" variant="muted" className="space-y-2">
+          <Card padding="md" variant={isReady ? 'default' : 'muted'} className="space-y-2">
             <div className="flex items-center justify-between pb-1">
-              <div className="w-8 h-8 rounded-lg bg-surface-muted dark:bg-dark-muted flex items-center justify-center text-surface-text-muted dark:text-dark-text-muted">
+              <div className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-950/40 flex items-center justify-center text-brand-700 dark:text-brand-300">
                 <ActivityIcon className="w-4 h-4" />
               </div>
-              <Badge variant="neutral" size="sm">
-                Mastery
+              <Badge variant="brand" size="sm" dot>
+                Ready
               </Badge>
             </div>
             <CardTitle className="text-sm">Topic Mastery & Graph</CardTitle>
             <CardDescription className="text-xs">
-              Hierarchical prerequisite concept tree, forgetting curves, and spaced review scheduler.
+              Hierarchical prerequisite concept DAG, forgetting curves, and spaced review tracking.
             </CardDescription>
             <div className="pt-2">
-              <span className="text-[11px] text-surface-text-muted dark:text-dark-text-muted font-medium">
-                Available in next chapter
-              </span>
+              <Link to="/mastery">
+                <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
+                  View Mastery Graph
+                </Button>
+              </Link>
             </div>
           </Card>
         </div>
