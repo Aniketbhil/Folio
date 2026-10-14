@@ -3,8 +3,10 @@ import { NavLink } from 'react-router-dom'
 import { CloseIcon } from '../ui/Icons'
 import { BrandLogo } from './BrandLogo'
 import { MAIN_NAV_ITEMS, UPCOMING_NAV_ITEMS } from './navItems'
+import { useAuth } from '../../context/useAuth'
 import { useStudent } from '../../context/useStudent'
 import { useCourse } from '../../context/useCourse'
+import { LogOut } from 'lucide-react'
 
 export interface MobileNavProps {
   isOpen: boolean
@@ -15,8 +17,11 @@ export const MobileNav: React.FC<MobileNavProps> = ({
   isOpen,
   onClose,
 }) => {
+  const { user, logout } = useAuth()
   const { activeStudent } = useStudent()
   const { activeCourse } = useCourse()
+
+  const currentStudentName = activeStudent?.name || user?.name || 'Student'
 
   // Lock body scroll while drawer is open
   useEffect(() => {
@@ -56,7 +61,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
       <div className="fixed inset-y-0 left-0 w-72 max-w-[85vw] bg-surface-card dark:bg-dark-card border-r border-surface-border dark:border-dark-border shadow-xl flex flex-col z-10">
         {/* Header with Brand and Close button */}
         <div className="h-14 px-4 flex items-center justify-between border-b border-surface-border dark:border-dark-border">
-          <NavLink to="/" onClick={onClose}>
+          <NavLink to="/overview" onClick={onClose}>
             <BrandLogo />
           </NavLink>
           <button
@@ -115,48 +120,64 @@ export const MobileNav: React.FC<MobileNavProps> = ({
             })}
           </div>
 
-          <div className="space-y-1 pt-2 border-t border-surface-border-subtle dark:border-dark-border-subtle">
-            <div className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-surface-text-muted/80 dark:text-dark-text-muted/80">
-              Upcoming Modules
-            </div>
-            {UPCOMING_NAV_ITEMS.map((item) => {
-              const Icon = item.icon
+          {UPCOMING_NAV_ITEMS.length > 0 && (
+            <div className="space-y-1 pt-2 border-t border-surface-border-subtle dark:border-dark-border-subtle">
+              <div className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-surface-text-muted/80 dark:text-dark-text-muted/80">
+                Upcoming Modules
+              </div>
+              {UPCOMING_NAV_ITEMS.map((item) => {
+                const Icon = item.icon
 
-              return (
-                <div
-                  key={item.id}
-                  className="w-full min-h-10 flex items-center justify-between px-3.5 py-2 rounded-lg text-sm text-surface-text-muted/50 dark:text-dark-text-muted/50 cursor-not-allowed select-none"
-                  aria-disabled="true"
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon className="w-4 h-4 shrink-0 text-surface-text-muted/40 dark:text-dark-text-muted/40" />
-                    <span>{item.label}</span>
+                return (
+                  <div
+                    key={item.id}
+                    className="w-full min-h-10 flex items-center justify-between px-3.5 py-2 rounded-lg text-sm text-surface-text-muted/50 dark:text-dark-text-muted/50 cursor-not-allowed select-none"
+                    aria-disabled="true"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon className="w-4 h-4 shrink-0 text-surface-text-muted/40 dark:text-dark-text-muted/40" />
+                      <span>{item.label}</span>
+                    </div>
+                    {item.badge && (
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-surface-muted text-surface-text-muted/70 dark:bg-dark-muted dark:text-dark-text-muted/70 border border-surface-border-subtle dark:border-dark-border-subtle">
+                        {item.badge}
+                      </span>
+                    )}
                   </div>
-                  {item.badge && (
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-surface-muted text-surface-text-muted/70 dark:bg-dark-muted dark:text-dark-text-muted/70 border border-surface-border-subtle dark:border-dark-border-subtle">
-                      {item.badge}
-                    </span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
         </nav>
 
-        {/* Mobile footer: Real Active Context */}
-        <div className="p-3 border-t border-surface-border dark:border-dark-border bg-surface-muted/30 dark:bg-dark-muted/30 space-y-1">
-          <div className="text-xs truncate">
-            <span className="text-surface-text-muted dark:text-dark-text-muted">Student: </span>
-            <span className="font-semibold text-surface-text dark:text-dark-text">
-              {activeStudent ? activeStudent.name : 'None selected'}
-            </span>
+        {/* Mobile footer: Real Active Context & Sign Out */}
+        <div className="p-3 border-t border-surface-border dark:border-dark-border bg-surface-muted/30 dark:bg-dark-muted/30 space-y-2">
+          <div className="p-2.5 rounded-lg border border-surface-border-subtle dark:border-dark-border-subtle bg-surface-card dark:bg-dark-card space-y-1 text-xs">
+            <div className="truncate">
+              <span className="text-surface-text-muted dark:text-dark-text-muted">Account: </span>
+              <span className="font-semibold text-surface-text dark:text-dark-text">
+                {currentStudentName}
+              </span>
+            </div>
+            <div className="truncate">
+              <span className="text-surface-text-muted dark:text-dark-text-muted">Course: </span>
+              <span className="font-semibold text-surface-text dark:text-dark-text">
+                {activeCourse ? activeCourse.name : 'None selected'}
+              </span>
+            </div>
           </div>
-          <div className="text-xs truncate">
-            <span className="text-surface-text-muted dark:text-dark-text-muted">Course: </span>
-            <span className="font-semibold text-surface-text dark:text-dark-text">
-              {activeCourse ? activeCourse.name : 'None selected'}
-            </span>
-          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              onClose()
+              logout()
+            }}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-surface-text-muted hover:text-red-600 hover:bg-surface-muted dark:text-dark-text-muted dark:hover:text-red-400 dark:hover:bg-dark-muted transition-colors cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign Out</span>
+          </button>
         </div>
       </div>
     </div>

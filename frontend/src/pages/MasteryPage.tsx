@@ -368,9 +368,9 @@ export const MasteryPage: React.FC = () => {
           <Alert variant="warning">
             <div className="flex items-center justify-between">
               <span>Select an active student profile to inspect personalized concept mastery.</span>
-              <Link to="/students">
+              <Link to="/profile">
                 <Button variant="secondary" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
-                  Select Student
+                  Manage Profile
                 </Button>
               </Link>
             </div>
@@ -411,6 +411,20 @@ export const MasteryPage: React.FC = () => {
           </Alert>
         )}
 
+        {/* Missing Student Context Alert */}
+        {!activeStudent && (
+          <Alert variant="info">
+            <div className="flex items-center justify-between">
+              <span>Select an active student profile to track Bayesian mastery progress and view personalized node statistics.</span>
+              <Link to="/profile">
+                <Button variant="secondary" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
+                  Manage Profile
+                </Button>
+              </Link>
+            </div>
+          </Alert>
+        )}
+
         {/* Top Summary Metrics Bar */}
         {masteryData && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
@@ -421,7 +435,7 @@ export const MasteryPage: React.FC = () => {
               <div className="text-xl font-bold text-surface-text dark:text-dark-text">
                 {masteryData.average_mastery !== null && masteryData.average_mastery !== undefined
                   ? `${Math.round(masteryData.average_mastery * 100)}%`
-                  : 'N/A'}
+                  : '0% (Unpracticed)'}
               </div>
             </Card>
 
@@ -439,7 +453,10 @@ export const MasteryPage: React.FC = () => {
                 Topic Coverage
               </span>
               <div className="text-xl font-bold text-surface-text dark:text-dark-text">
-                {masteryData.coverage.practiced} / {masteryData.coverage.total}
+                {masteryData.coverage.practiced} / {masteryData.coverage.total}{' '}
+                <span className="text-xs font-normal text-surface-text-muted">
+                  ({masteryData.coverage.total > 0 ? Math.round((masteryData.coverage.practiced / masteryData.coverage.total) * 100) : 0}%)
+                </span>
               </div>
             </Card>
 
@@ -801,12 +818,18 @@ export const MasteryPage: React.FC = () => {
 
                       {/* Action buttons */}
                       <div className="pt-2 border-t border-surface-border-subtle dark:border-dark-border-subtle flex flex-col gap-2">
-                        <Link to="/assessments" className="w-full">
+                        <Link
+                          to={`/assessments?topicId=${selectedTopicDetail.id}&topicName=${encodeURIComponent(selectedTopicDetail.name)}`}
+                          className="w-full"
+                        >
                           <Button variant="primary" size="sm" className="w-full" leftIcon={<Sparkles className="w-3.5 h-3.5" />}>
                             Practice in Quiz
                           </Button>
                         </Link>
-                        <Link to="/tutor" className="w-full">
+                        <Link
+                          to={`/tutor?topicId=${selectedTopicDetail.id}&topicName=${encodeURIComponent(selectedTopicDetail.name)}`}
+                          className="w-full"
+                        >
                           <Button variant="outline" size="sm" className="w-full" leftIcon={<MessageSquare className="w-3.5 h-3.5" />}>
                             Ask AI Tutor
                           </Button>
@@ -912,12 +935,12 @@ export const MasteryPage: React.FC = () => {
                       )}
 
                       <div className="flex items-center gap-2 pt-2">
-                        <Link to="/assessments">
+                        <Link to={`/assessments?topicId=${node.id}&topicName=${encodeURIComponent(node.name)}`}>
                           <Button variant="primary" size="sm" leftIcon={<Sparkles className="w-3.5 h-3.5" />}>
                             Practice in Quiz
                           </Button>
                         </Link>
-                        <Link to="/tutor">
+                        <Link to={`/tutor?topicId=${node.id}&topicName=${encodeURIComponent(node.name)}`}>
                           <Button variant="outline" size="sm" leftIcon={<MessageSquare className="w-3.5 h-3.5" />}>
                             Ask AI Tutor
                           </Button>

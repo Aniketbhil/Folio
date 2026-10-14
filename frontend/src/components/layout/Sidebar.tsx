@@ -2,8 +2,10 @@ import React from 'react'
 import { NavLink } from 'react-router-dom'
 import { BrandLogo } from './BrandLogo'
 import { MAIN_NAV_ITEMS, UPCOMING_NAV_ITEMS } from './navItems'
+import { useAuth } from '../../context/useAuth'
 import { useStudent } from '../../context/useStudent'
 import { useCourse } from '../../context/useCourse'
+import { LogOut } from 'lucide-react'
 
 export interface SidebarProps {
   className?: string
@@ -14,8 +16,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   className = '',
   onNavigate,
 }) => {
+  const { user, logout } = useAuth()
   const { activeStudent } = useStudent()
   const { activeCourse } = useCourse()
+
+  const currentStudentName = activeStudent?.name || user?.name || 'Student'
 
   return (
     <aside
@@ -24,7 +29,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     >
       {/* Brand Header */}
       <div className="h-14 px-5 flex items-center border-b border-surface-border dark:border-dark-border">
-        <NavLink to="/" onClick={onNavigate} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded-lg">
+        <NavLink
+          to="/overview"
+          onClick={onNavigate}
+          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded-lg"
+          aria-label="Folio Overview"
+        >
           <BrandLogo />
         </NavLink>
       </div>
@@ -77,37 +87,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Upcoming Features (Accessibly disabled) */}
-        <div className="space-y-1 pt-2 border-t border-surface-border-subtle dark:border-dark-border-subtle">
-          <div className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-surface-text-muted/80 dark:text-dark-text-muted/80">
-            Learning Features
-          </div>
-          {UPCOMING_NAV_ITEMS.map((item) => {
-            const Icon = item.icon
+        {UPCOMING_NAV_ITEMS.length > 0 && (
+          <div className="space-y-1 pt-2 border-t border-surface-border-subtle dark:border-dark-border-subtle">
+            <div className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-surface-text-muted/80 dark:text-dark-text-muted/80">
+              Learning Features
+            </div>
+            {UPCOMING_NAV_ITEMS.map((item) => {
+              const Icon = item.icon
 
-            return (
-              <div
-                key={item.id}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-surface-text-muted/50 dark:text-dark-text-muted/50 cursor-not-allowed select-none"
-                aria-disabled="true"
-                title={`${item.label} will be enabled in upcoming chapters`}
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Icon className="w-4 h-4 shrink-0 text-surface-text-muted/40 dark:text-dark-text-muted/40" />
-                  <span className="truncate">{item.label}</span>
+              return (
+                <div
+                  key={item.id}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-surface-text-muted/50 dark:text-dark-text-muted/50 cursor-not-allowed select-none"
+                  aria-disabled="true"
+                  title={`${item.label} will be enabled in upcoming chapters`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Icon className="w-4 h-4 shrink-0 text-surface-text-muted/40 dark:text-dark-text-muted/40" />
+                    <span className="truncate">{item.label}</span>
+                  </div>
+                  {item.badge && (
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-surface-muted text-surface-text-muted/70 dark:bg-dark-muted dark:text-dark-text-muted/70 border border-surface-border-subtle dark:border-dark-border-subtle">
+                      {item.badge}
+                    </span>
+                  )}
                 </div>
-                {item.badge && (
-                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-surface-muted text-surface-text-muted/70 dark:bg-dark-muted dark:text-dark-text-muted/70 border border-surface-border-subtle dark:border-dark-border-subtle">
-                    {item.badge}
-                  </span>
-                )}
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        )}
       </nav>
 
-      {/* Workspace Context Footer: Real Active Context */}
-      <div className="p-3 border-t border-surface-border dark:border-dark-border bg-surface-muted/30 dark:bg-dark-muted/30">
+      {/* Workspace Context Footer: Real Active Context & Logout */}
+      <div className="p-3 border-t border-surface-border dark:border-dark-border bg-surface-muted/30 dark:bg-dark-muted/30 space-y-2">
         <div className="p-2.5 rounded-lg border border-surface-border-subtle dark:border-dark-border-subtle bg-surface-card dark:bg-dark-card space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-surface-text-muted dark:text-dark-text-muted">
@@ -115,16 +127,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
             <span
               className={`inline-block w-2 h-2 rounded-full ${
-                activeStudent && activeCourse ? 'bg-brand-500' : 'bg-amber-500'
+                activeCourse ? 'bg-brand-500' : 'bg-amber-500'
               }`}
-              title={activeStudent && activeCourse ? 'Context Complete' : 'Context Incomplete'}
+              title={activeCourse ? 'Course Active' : 'No Course Selected'}
             />
           </div>
 
           <div className="text-xs truncate">
-            <span className="text-surface-text-muted dark:text-dark-text-muted">Student: </span>
+            <span className="text-surface-text-muted dark:text-dark-text-muted">Account: </span>
             <span className="font-semibold text-surface-text dark:text-dark-text">
-              {activeStudent ? activeStudent.name : 'None selected'}
+              {currentStudentName}
             </span>
           </div>
 
@@ -135,6 +147,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
           </div>
         </div>
+
+        {/* Sign Out Action Button */}
+        <button
+          type="button"
+          onClick={logout}
+          className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-surface-text-muted hover:text-red-600 hover:bg-surface-muted dark:text-dark-text-muted dark:hover:text-red-400 dark:hover:bg-dark-muted transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span>Sign Out</span>
+        </button>
       </div>
     </aside>
   )

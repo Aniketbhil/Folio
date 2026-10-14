@@ -18,7 +18,7 @@ import {
 import { ArrowRight, ShieldCheck } from 'lucide-react'
 
 export const OverviewPage: React.FC = () => {
-  const { activeStudent, students } = useStudent()
+  const { activeStudent } = useStudent()
   const { activeCourse, activeCourseDetail, courses } = useCourse()
   const { meta, isLoading: isMetaLoading, error: metaError } = useMeta()
 
@@ -113,20 +113,18 @@ export const OverviewPage: React.FC = () => {
 
           <CardDescription className="text-xs pt-1">
             {hasStudent
-              ? `Profile ID #${activeStudent.id}. All quiz attempts, tutor chats, and mastery tracking are personalized to this student.`
-              : students.length > 0
-              ? `${students.length} student profile(s) available. Select a profile to continue.`
-              : 'Create a student profile to track learning progress, practice attempts, and personalized tutoring.'}
+              ? `Profile ID #${activeStudent.id}. All quiz attempts, tutor chats, and mastery tracking are personalized to your account.`
+              : 'Sign in to access your personalized tutoring and learning progress.'}
           </CardDescription>
 
           <div className="pt-4 mt-4 border-t border-surface-border-subtle dark:border-dark-border-subtle flex items-center justify-between">
-            <Link to="/students">
+            <Link to="/profile">
               <Button variant={hasStudent ? 'secondary' : 'primary'} size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
-                {hasStudent ? 'Change Student' : 'Select or Add Student'}
+                Manage Profile
               </Button>
             </Link>
             <span className="text-[11px] text-surface-text-muted dark:text-dark-text-muted">
-              {students.length} profile(s)
+              {hasStudent ? 'Active Account' : 'Sign In Required'}
             </span>
           </div>
         </Card>

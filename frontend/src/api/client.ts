@@ -1,6 +1,44 @@
 import { ApiClientError } from './errors'
 import type { BackendErrorPayload } from '../types/api'
 
+export const TOKEN_STORAGE_KEY = 'folio_access_token'
+
+/**
+ * Access token helpers for authorization headers.
+ */
+export function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return localStorage.getItem(TOKEN_STORAGE_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function setAuthToken(token: string | null): void {
+  if (typeof window === 'undefined') return
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_STORAGE_KEY, token)
+    } else {
+      localStorage.removeItem(TOKEN_STORAGE_KEY)
+    }
+  } catch {
+    // Ignore storage errors in restricted environments
+  }
+}
+
+export function clearAuthToken(): void {
+  setAuthToken(null)
+}
+
+type UnauthorizedHandler = () => void
+let unauthorizedHandler: UnauthorizedHandler | null = null
+
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
+  unauthorizedHandler = handler
+}
+
 /**
  * Resolve the API base URL.
  * Guarantees /api/v1 is appended centrally exactly once.
@@ -27,6 +65,7 @@ export interface RequestOptions extends Omit<RequestInit, 'body'> {
 
 /**
  * Universal fetch wrapper for Folio API.
+ * Automatically injects Authorization header when a bearer token is present.
  */
 export async function apiRequest<T>(
   path: string,
@@ -54,6 +93,15 @@ export async function apiRequest<T>(
 
   // Configure headers and body
   const requestHeaders = new Headers(headers)
+
+  // Attach Bearer token if not explicitly provided
+  if (!requestHeaders.has('Authorization')) {
+    const token = getAuthToken()
+    if (token) {
+      requestHeaders.set('Authorization', `Bearer ${token}`)
+    }
+  }
+
   let requestBody: BodyInit | undefined = undefined
 
   if (body !== undefined && body !== null) {
@@ -114,6 +162,16 @@ export async function apiRequest<T>(
       }
     } catch {
       // Fallback to HTTP status text if parsing fails
+    }
+
+    // Trigger unauthorized callback on 401 (excluding public auth endpoints)
+    if (
+      response.status === 401 &&
+      !cleanPath.startsWith('/auth/login') &&
+      !cleanPath.startsWith('/auth/signup')
+    ) {
+      clearAuthToken()
+      unauthorizedHandler?.()
     }
 
     throw new ApiClientError(response.status, errorCode, errorMessage, url)

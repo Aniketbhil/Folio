@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   AlertCircle,
   ArrowLeft,
@@ -31,12 +31,16 @@ import { getCourseKnowledgeGraph } from "../api/mastery";
 import type {
   AnswerSubmitResponse,
   AssessmentCreate,
+  AssessmentDifficulty,
   AssessmentKind,
   AssessmentListItem,
   AssessmentOut,
   AssessmentReportResponse,
+  QuestionConceptOut,
   QuestionOut,
+  QuestionTopicOut,
   QuestionType,
+  TopicScoreSummary,
 } from "../types/assessment";
 import type { GraphNode } from "../types/mastery";
 import {
@@ -59,6 +63,7 @@ type ViewMode = "list" | "taking" | "report";
 export const AssessmentsPage: React.FC = () => {
   const { activeStudent } = useStudent();
   const { activeCourse } = useCourse();
+  const [searchParams] = useSearchParams();
 
   // Main state
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -73,6 +78,10 @@ export const AssessmentsPage: React.FC = () => {
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [isLoadingAssessment, setIsLoadingAssessment] = useState(false);
   const [assessmentError, setAssessmentError] = useState<string | null>(null);
+
+  // In-flight diagnostic lock
+  const isStartingDiagnosticRef = useRef(false);
+  const [isStartingDiagnostic, setIsStartingDiagnostic] = useState(false);
 
   // Current answer state for active question
   const [currentAnswer, setCurrentAnswer] = useState<string>("");
@@ -93,7 +102,8 @@ export const AssessmentsPage: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [createKind, setCreateKind] = useState<AssessmentKind>("quiz");
   const [createTitle, setCreateTitle] = useState("");
-  const [createDifficulty, setCreateDifficulty] = useState<number>(3);
+  const [createDifficulty, setCreateDifficulty] =
+    useState<AssessmentDifficulty>("auto");
   const [createNumQuestions, setCreateNumQuestions] = useState<number>(5);
   const [createTypes, setCreateTypes] = useState<QuestionType[]>(["mcq"]);
   const [selectedTopicId, setSelectedTopicId] = useState<string>("all");
@@ -108,6 +118,71 @@ export const AssessmentsPage: React.FC = () => {
   // Delete confirmation modal state
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Helper functions for safe display of backend fields
+  const getTopicName = (
+    top: QuestionTopicOut | string | undefined | null,
+  ): string => {
+    if (!top) return "";
+    if (typeof top === "string") return top;
+    return top.name || "";
+  };
+
+  const getConceptName = (
+    con: QuestionConceptOut | string | undefined | null,
+  ): string => {
+    if (!con) return "";
+    if (typeof con === "string") return con;
+    return con.name || "";
+  };
+
+  const formatTopicBadgeLabel = (t: unknown): string => {
+    if (!t) return "";
+    if (typeof t === "string") return t;
+    if (typeof t === "object") {
+      const obj = t as Record<string, unknown>;
+      if (obj.topic && typeof obj.topic === "object") {
+        const inner = obj.topic as Record<string, unknown>;
+        if (inner.name) return String(inner.name);
+      }
+      if (obj.name) return String(obj.name);
+      if (obj.topic_name) return String(obj.topic_name);
+    }
+    return String(t);
+  };
+
+  const formatAnswerDisplay = (ans: unknown): string => {
+    if (ans === null || ans === undefined) return "(None)";
+    if (typeof ans === "string") return ans;
+    if (typeof ans === "number" || typeof ans === "boolean") return String(ans);
+    if (typeof ans === "object") {
+      const obj = ans as Record<string, unknown>;
+      if (obj.text && obj.key) return `${obj.key}: ${obj.text}`;
+      if (obj.text) return String(obj.text);
+      if (obj.value !== undefined)
+        return `${obj.value}${obj.unit ? ` ${obj.unit}` : ""}`;
+      return JSON.stringify(ans);
+    }
+    return String(ans);
+  };
+
+  const formatTopicSummaryName = (item: TopicScoreSummary): string => {
+    if (item.topic_name) return item.topic_name;
+    if (item.topic?.name) return item.topic.name;
+    return `Topic #${item.topic_id || ""}`;
+  };
+
+  // Consume search params for targeted quiz creation from Mastery graph
+  useEffect(() => {
+    const topicIdParam = searchParams.get("topicId");
+    if (topicIdParam) {
+      const timer = window.setTimeout(() => {
+        setSelectedTopicId(topicIdParam);
+        setIsCreateModalOpen(true);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams]);
 
   // Manual reload assessments list
   const loadAssessments = useCallback(async () => {
@@ -212,7 +287,7 @@ export const AssessmentsPage: React.FC = () => {
       if (q.answered && q.attempt) {
         setCurrentAnswer(q.attempt.answer);
         setAnswerFeedback({
-          attempt_id: q.attempt.id,
+          attempt_id: q.attempt.id ?? 0,
           is_correct: q.attempt.is_correct,
           score: q.attempt.score,
           correct_answer: "",
@@ -272,10 +347,14 @@ export const AssessmentsPage: React.FC = () => {
 
   // Quick Diagnostic launch
   const handleLaunchDiagnostic = async () => {
-    if (!activeCourse || !activeStudent) return;
+    if (isStartingDiagnosticRef.current || !activeCourse || !activeStudent)
+      return;
 
+    isStartingDiagnosticRef.current = true;
+    setIsStartingDiagnostic(true);
     setIsLoadingAssessment(true);
     setAssessmentError(null);
+    setListError(null);
     try {
       const data = await createOrResumeDiagnostic(
         activeCourse.id,
@@ -291,6 +370,8 @@ export const AssessmentsPage: React.FC = () => {
         err instanceof Error ? err.message : "Failed to launch diagnostic test",
       );
     } finally {
+      isStartingDiagnosticRef.current = false;
+      setIsStartingDiagnostic(false);
       setIsLoadingAssessment(false);
     }
   };
@@ -468,8 +549,10 @@ export const AssessmentsPage: React.FC = () => {
                   </Badge>
                 </h1>
                 <p className="text-xs text-surface-text-muted dark:text-dark-text-muted">
-                  Difficulty Level {activeAssessment.difficulty} / 5 &bull;{" "}
-                  {totalCount} Questions
+                  {activeAssessment.difficulty
+                    ? `Difficulty: ${activeAssessment.difficulty}`
+                    : "Adaptive Difficulty"}{" "}
+                  &bull; {totalCount} Questions
                 </p>
               </div>
             </div>
@@ -557,19 +640,22 @@ export const AssessmentsPage: React.FC = () => {
                     Q{activeQuestionIndex + 1}
                   </Badge>
                   <Badge variant="brand" size="sm">
-                    {currentQ.topic}
+                    {getTopicName(currentQ.topic)}
                   </Badge>
-                  {currentQ.concept && (
+                  {getConceptName(currentQ.concept) && (
                     <Badge variant="neutral" size="sm">
-                      Concept: {currentQ.concept}
+                      Concept: {getConceptName(currentQ.concept)}
                     </Badge>
                   )}
-                  <Badge variant="neutral" size="sm">
-                    Level {currentQ.difficulty}
+                  <Badge variant="neutral" size="sm" className="capitalize">
+                    {currentQ.difficulty || "Adaptive"}
                   </Badge>
                 </div>
                 <span className="text-xs uppercase tracking-wider font-semibold text-surface-text-muted dark:text-dark-text-muted">
-                  {currentQ.question_type.replace("_", " ")}
+                  {(currentQ.qtype || currentQ.question_type || "mcq").replace(
+                    "_",
+                    " ",
+                  )}
                 </span>
               </div>
 
@@ -579,100 +665,105 @@ export const AssessmentsPage: React.FC = () => {
               </div>
 
               {/* Answer Choices / Inputs */}
-              <div className="space-y-3 pt-2">
-                {currentQ.question_type === "mcq" && currentQ.options && (
-                  <div className="space-y-2.5">
-                    {currentQ.options.map((opt) => {
-                      const isSelected = currentAnswer === opt.key;
-                      let optionCardClass =
-                        "border-surface-border dark:border-dark-border hover:border-brand-500 hover:bg-brand-50/20 dark:hover:bg-brand-950/20";
+              {(() => {
+                const qType = currentQ.qtype || currentQ.question_type || "mcq";
+                return (
+                  <div className="space-y-3 pt-2">
+                    {qType === "mcq" && currentQ.options && (
+                      <div className="space-y-2.5">
+                        {currentQ.options.map((opt) => {
+                          const isSelected = currentAnswer === opt.key;
+                          let optionCardClass =
+                            "border-surface-border dark:border-dark-border hover:border-brand-500 hover:bg-brand-50/20 dark:hover:bg-brand-950/20";
 
-                      if (isAnswered) {
-                        const isCorrectOption =
-                          answerFeedback?.correct_answer === opt.key ||
-                          (currentQ.attempt?.answer === opt.key &&
-                            currentQ.attempt.is_correct);
-                        const isSelectedIncorrect =
-                          isSelected &&
-                          !currentQ.attempt?.is_correct &&
-                          (!answerFeedback || !answerFeedback.is_correct);
+                          if (isAnswered) {
+                            const isCorrectOption =
+                              answerFeedback?.correct_answer === opt.key ||
+                              (currentQ.attempt?.answer === opt.key &&
+                                currentQ.attempt.is_correct);
+                            const isSelectedIncorrect =
+                              isSelected &&
+                              !currentQ.attempt?.is_correct &&
+                              (!answerFeedback || !answerFeedback.is_correct);
 
-                        if (isCorrectOption) {
-                          optionCardClass =
-                            "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100 font-medium";
-                        } else if (isSelectedIncorrect) {
-                          optionCardClass =
-                            "border-rose-500 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-100";
-                        } else {
-                          optionCardClass =
-                            "border-surface-border-subtle dark:border-dark-border-subtle opacity-60";
-                        }
-                      } else if (isSelected) {
-                        optionCardClass =
-                          "border-brand-600 bg-brand-50/50 dark:bg-brand-950/40 ring-1 ring-brand-600 font-medium";
-                      }
+                            if (isCorrectOption) {
+                              optionCardClass =
+                                "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100 font-medium";
+                            } else if (isSelectedIncorrect) {
+                              optionCardClass =
+                                "border-rose-500 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-100";
+                            } else {
+                              optionCardClass =
+                                "border-surface-border-subtle dark:border-dark-border-subtle opacity-60";
+                            }
+                          } else if (isSelected) {
+                            optionCardClass =
+                              "border-brand-600 bg-brand-50/50 dark:bg-brand-950/40 ring-1 ring-brand-600 font-medium";
+                          }
 
-                      return (
-                        <div
-                          key={opt.key}
-                          onClick={() => {
-                            if (!isAnswered) setCurrentAnswer(opt.key);
-                          }}
-                          className={`p-3.5 rounded-lg border flex items-start gap-3 transition-all ${
-                            isAnswered ? "cursor-default" : "cursor-pointer"
-                          } ${optionCardClass}`}
-                        >
-                          <span className="w-6 h-6 rounded-md bg-surface-muted dark:bg-dark-muted text-xs font-bold flex items-center justify-center shrink-0 uppercase">
-                            {opt.key}
-                          </span>
-                          <span className="text-sm pt-0.5 text-surface-text dark:text-dark-text">
-                            {opt.text}
-                          </span>
+                          return (
+                            <div
+                              key={opt.key}
+                              onClick={() => {
+                                if (!isAnswered) setCurrentAnswer(opt.key);
+                              }}
+                              className={`p-3.5 rounded-lg border flex items-start gap-3 transition-all ${
+                                isAnswered ? "cursor-default" : "cursor-pointer"
+                              } ${optionCardClass}`}
+                            >
+                              <span className="w-6 h-6 rounded-md bg-surface-muted dark:bg-dark-muted text-xs font-bold flex items-center justify-center shrink-0 uppercase">
+                                {opt.key}
+                              </span>
+                              <span className="text-sm pt-0.5 text-surface-text dark:text-dark-text">
+                                {opt.text}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {qType === "short_answer" && (
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-surface-text-muted dark:text-dark-text-muted">
+                          Your Answer:
+                        </label>
+                        <textarea
+                          value={currentAnswer}
+                          onChange={(e) => setCurrentAnswer(e.target.value)}
+                          disabled={isAnswered}
+                          rows={3}
+                          placeholder="Type your concise answer..."
+                          className="w-full px-3 py-2 rounded-lg border border-surface-border dark:border-dark-border bg-surface-card dark:bg-dark-card text-surface-text dark:text-dark-text text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-75 disabled:cursor-not-allowed"
+                        />
+                      </div>
+                    )}
+
+                    {qType === "numerical" && (
+                      <div className="space-y-2 max-w-xs">
+                        <label className="text-xs font-medium text-surface-text-muted dark:text-dark-text-muted">
+                          Numerical Value{" "}
+                          {currentQ.unit ? `(${currentQ.unit})` : ""}:
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="text"
+                            value={currentAnswer}
+                            onChange={(e) => setCurrentAnswer(e.target.value)}
+                            disabled={isAnswered}
+                            placeholder="e.g. 42.5"
+                          />
+                          {currentQ.unit && (
+                            <span className="text-xs font-medium text-surface-text-muted dark:text-dark-text-muted px-2 py-1 rounded bg-surface-muted dark:bg-dark-muted">
+                              {currentQ.unit}
+                            </span>
+                          )}
                         </div>
-                      );
-                    })}
+                      </div>
+                    )}
                   </div>
-                )}
-
-                {currentQ.question_type === "short_answer" && (
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-surface-text-muted dark:text-dark-text-muted">
-                      Your Answer:
-                    </label>
-                    <textarea
-                      value={currentAnswer}
-                      onChange={(e) => setCurrentAnswer(e.target.value)}
-                      disabled={isAnswered}
-                      rows={3}
-                      placeholder="Type your concise answer..."
-                      className="w-full px-3 py-2 rounded-lg border border-surface-border dark:border-dark-border bg-surface-card dark:bg-dark-card text-surface-text dark:text-dark-text text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-75 disabled:cursor-not-allowed"
-                    />
-                  </div>
-                )}
-
-                {currentQ.question_type === "numerical" && (
-                  <div className="space-y-2 max-w-xs">
-                    <label className="text-xs font-medium text-surface-text-muted dark:text-dark-text-muted">
-                      Numerical Value{" "}
-                      {currentQ.unit ? `(${currentQ.unit})` : ""}:
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="text"
-                        value={currentAnswer}
-                        onChange={(e) => setCurrentAnswer(e.target.value)}
-                        disabled={isAnswered}
-                        placeholder="e.g. 42.5"
-                      />
-                      {currentQ.unit && (
-                        <span className="text-xs font-medium text-surface-text-muted dark:text-dark-text-muted px-2 py-1 rounded bg-surface-muted dark:bg-dark-muted">
-                          {currentQ.unit}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
+                );
+              })()}
 
               {answerError && (
                 <Alert variant="error" onDismiss={() => setAnswerError(null)}>
@@ -718,28 +809,32 @@ export const AssessmentsPage: React.FC = () => {
                         </>
                       )}
                     </div>
-                    {answerFeedback.mastery_update && (
-                      <Badge variant="brand" size="sm">
-                        Mastery:{" "}
-                        {Math.round(
-                          answerFeedback.mastery_update.p_mastery_before * 100,
-                        )}
-                        % &rarr;{" "}
-                        {Math.round(
-                          answerFeedback.mastery_update.p_mastery_after * 100,
-                        )}
-                        %
-                      </Badge>
-                    )}
+                    {answerFeedback.mastery_update &&
+                      (() => {
+                        const beforeVal =
+                          answerFeedback.mastery_update.p_mastery_before ??
+                          answerFeedback.mastery_update.before ??
+                          0;
+                        const afterVal =
+                          answerFeedback.mastery_update.p_mastery_after ??
+                          answerFeedback.mastery_update.after ??
+                          0;
+                        return (
+                          <Badge variant="brand" size="sm">
+                            Mastery: {Math.round(beforeVal * 100)}% &rarr;{" "}
+                            {Math.round(afterVal * 100)}%
+                          </Badge>
+                        );
+                      })()}
                   </div>
 
                   {/* Correct answer notice if incorrect */}
                   {!answerFeedback.is_correct &&
-                    answerFeedback.correct_answer && (
+                    Boolean(answerFeedback.correct_answer) && (
                       <div className="text-xs font-semibold">
                         Correct Answer:{" "}
                         <span className="underline">
-                          {answerFeedback.correct_answer}
+                          {formatAnswerDisplay(answerFeedback.correct_answer)}
                         </span>
                       </div>
                     )}
@@ -760,21 +855,35 @@ export const AssessmentsPage: React.FC = () => {
                           Course Material Evidence:
                         </span>
                         <div className="space-y-1.5">
-                          {answerFeedback.citations.map((cite, cIdx) => (
-                            <div
-                              key={cIdx}
-                              className="text-xs bg-surface-card/60 dark:bg-dark-card/60 p-2 rounded border border-current/10 text-surface-text dark:text-dark-text"
-                            >
-                              <span className="font-semibold">
-                                {cite.source_title}
-                              </span>
-                              {cite.location?.page_number &&
-                                ` (p. ${cite.location.page_number})`}
-                              <p className="italic text-[11px] mt-0.5 text-surface-text-muted dark:text-dark-text-muted">
-                                &ldquo;{cite.snippet}&rdquo;
-                              </p>
-                            </div>
-                          ))}
+                          {answerFeedback.citations.map((cite, cIdx) => {
+                            const pageNum = (
+                              cite.location as
+                                | Record<string, unknown>
+                                | undefined
+                            )?.page_number;
+                            const snippet =
+                              "snippet" in cite
+                                ? (cite as { snippet?: string }).snippet
+                                : "";
+                            return (
+                              <div
+                                key={cIdx}
+                                className="text-xs bg-surface-card/60 dark:bg-dark-card/60 p-2 rounded border border-current/10 text-surface-text dark:text-dark-text"
+                              >
+                                <span className="font-semibold">
+                                  {cite.source_title}
+                                </span>
+                                {pageNum !== undefined
+                                  ? ` (p. ${String(pageNum)})`
+                                  : ""}
+                                {snippet ? (
+                                  <p className="italic text-[11px] mt-0.5 text-surface-text-muted dark:text-dark-text-muted">
+                                    &ldquo;{snippet}&rdquo;
+                                  </p>
+                                ) : null}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -869,6 +978,9 @@ export const AssessmentsPage: React.FC = () => {
   // -------------------------------------------------------------
   if (viewMode === "report" && report) {
     const { summary, by_topic, weak_topics, strong_topics, review } = report;
+    const reportKind = report.kind || report.assessment?.kind || "quiz";
+    const reportTitle =
+      report.title || report.assessment?.title || "Assessment Results";
 
     return (
       <PageContainer maxWidth="standard">
@@ -889,11 +1001,11 @@ export const AssessmentsPage: React.FC = () => {
                   All Assessments
                 </Button>
                 <Badge variant="brand" size="sm" className="capitalize">
-                  {report.kind.replace("_", " ")} Report
+                  {reportKind.replace("_", " ")} Report
                 </Badge>
               </div>
               <h1 className="text-xl sm:text-2xl font-bold text-surface-text dark:text-dark-text">
-                {report.title || "Assessment Results"}
+                {reportTitle}
               </h1>
             </div>
 
@@ -980,7 +1092,7 @@ export const AssessmentsPage: React.FC = () => {
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {strong_topics.map((t, idx) => (
                       <Badge key={idx} variant="brand" size="sm">
-                        {t}
+                        {formatTopicBadgeLabel(t)}
                       </Badge>
                     ))}
                   </div>
@@ -1004,7 +1116,7 @@ export const AssessmentsPage: React.FC = () => {
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {weak_topics.map((t, idx) => (
                       <Badge key={idx} variant="amber" size="sm">
-                        {t}
+                        {formatTopicBadgeLabel(t)}
                       </Badge>
                     ))}
                   </div>
@@ -1027,17 +1139,17 @@ export const AssessmentsPage: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0 space-y-3">
-                {by_topic.map((top) => (
-                  <div key={top.topic_id} className="space-y-1">
+                {by_topic.map((top, idx) => (
+                  <div key={top.topic_id ?? idx} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-medium text-surface-text dark:text-dark-text">
-                        {top.topic_name}
+                        {formatTopicSummaryName(top)}
                       </span>
                       <span className="text-surface-text-muted dark:text-dark-text-muted">
                         {top.correct} / {top.total} ({top.accuracy}%)
                       </span>
                     </div>
-                    <div className="w-full h-1.5 rounded-full bg-surface-border-subtle dark:bg-dark-border-subtle overflow-hidden">
+                    <div className="w-full h-1.5 rounded-full bg-surface-border-subtle dark:border-dark-border-subtle overflow-hidden">
                       <div
                         className={`h-full ${
                           top.accuracy >= 70
@@ -1064,7 +1176,7 @@ export const AssessmentsPage: React.FC = () => {
             <div className="space-y-3">
               {review.map((item, idx) => (
                 <Card
-                  key={item.question_id}
+                  key={item.question_id || idx}
                   padding="md"
                   className={`border-l-4 ${
                     item.is_correct
@@ -1079,11 +1191,11 @@ export const AssessmentsPage: React.FC = () => {
                           Q{idx + 1}
                         </span>
                         <Badge variant="neutral" size="sm">
-                          {item.topic}
+                          {getTopicName(item.topic)}
                         </Badge>
-                        {item.concept && (
+                        {getConceptName(item.concept) && (
                           <Badge variant="neutral" size="sm">
-                            {item.concept}
+                            {getConceptName(item.concept)}
                           </Badge>
                         )}
                       </div>
@@ -1111,7 +1223,9 @@ export const AssessmentsPage: React.FC = () => {
                               : "font-semibold text-rose-700 dark:text-rose-400"
                           }
                         >
-                          {item.student_answer || "(No answer provided)"}
+                          {formatAnswerDisplay(
+                            item.student_answer || item.your_answer,
+                          )}
                         </span>
                       </div>
                       {!item.is_correct && (
@@ -1120,7 +1234,7 @@ export const AssessmentsPage: React.FC = () => {
                             Correct Answer:{" "}
                           </span>
                           <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                            {item.correct_answer}
+                            {formatAnswerDisplay(item.correct_answer)}
                           </span>
                         </div>
                       )}
@@ -1186,7 +1300,13 @@ export const AssessmentsPage: React.FC = () => {
               variant="secondary"
               size="sm"
               onClick={handleLaunchDiagnostic}
-              disabled={!activeCourse || !activeStudent || isLoadingAssessment}
+              disabled={
+                !activeCourse ||
+                !activeStudent ||
+                isLoadingAssessment ||
+                isStartingDiagnostic
+              }
+              isLoading={isStartingDiagnostic}
               leftIcon={<Sparkles className="w-3.5 h-3.5" />}
             >
               Quick Diagnostic
@@ -1211,13 +1331,13 @@ export const AssessmentsPage: React.FC = () => {
                 Please select an active student profile to view or create
                 assessments.
               </span>
-              <Link to="/students">
+              <Link to="/profile">
                 <Button
                   variant="secondary"
                   size="sm"
                   rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
                 >
-                  Select Student
+                  Manage Profile
                 </Button>
               </Link>
             </div>
@@ -1343,7 +1463,13 @@ export const AssessmentsPage: React.FC = () => {
                   variant="primary"
                   size="sm"
                   onClick={handleLaunchDiagnostic}
-                  disabled={!activeCourse || !activeStudent}
+                  disabled={
+                    !activeCourse ||
+                    !activeStudent ||
+                    isLoadingAssessment ||
+                    isStartingDiagnostic
+                  }
+                  isLoading={isStartingDiagnostic}
                   leftIcon={<Sparkles className="w-3.5 h-3.5" />}
                 >
                   Start Diagnostic
@@ -1364,10 +1490,9 @@ export const AssessmentsPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredAssessments.map((a) => {
               const isInProgress = a.status === "in_progress";
+              const totalQ = a.num_questions ?? a.question_count ?? 0;
               const progressPct =
-                a.question_count > 0
-                  ? Math.round((a.answered_count / a.question_count) * 100)
-                  : 0;
+                totalQ > 0 ? Math.round((a.answered_count / totalQ) * 100) : 0;
 
               return (
                 <Card
@@ -1394,8 +1519,8 @@ export const AssessmentsPage: React.FC = () => {
                         {a.title || `${a.kind.toUpperCase()} #${a.id}`}
                       </CardTitle>
                       <CardDescription className="text-xs pt-0.5">
-                        Difficulty Level {a.difficulty} / 5 &bull;{" "}
-                        {a.question_count} Questions
+                        {totalQ} Questions &bull;{" "}
+                        {new Date(a.created_at).toLocaleDateString()}
                       </CardDescription>
                     </div>
 
@@ -1404,7 +1529,7 @@ export const AssessmentsPage: React.FC = () => {
                       <div className="flex items-center justify-between text-xs text-surface-text-muted dark:text-dark-text-muted">
                         <span>
                           {isInProgress
-                            ? `Answered: ${a.answered_count} / ${a.question_count}`
+                            ? `Answered: ${a.answered_count} / ${totalQ}`
                             : `Final Score: ${a.score !== null ? `${a.score}%` : "Graded"}`}
                         </span>
                         <span>{progressPct}%</span>
@@ -1515,13 +1640,14 @@ export const AssessmentsPage: React.FC = () => {
                 </label>
                 <Select
                   value={createDifficulty}
-                  onChange={(e) => setCreateDifficulty(Number(e.target.value))}
+                  onChange={(e) =>
+                    setCreateDifficulty(e.target.value as AssessmentDifficulty)
+                  }
                 >
-                  <option value={1}>Level 1 - Introductory</option>
-                  <option value={2}>Level 2 - Easy</option>
-                  <option value={3}>Level 3 - Moderate</option>
-                  <option value={4}>Level 4 - Advanced</option>
-                  <option value={5}>Level 5 - Mastery Challenge</option>
+                  <option value="auto">Auto (Adaptive / BKT)</option>
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
                 </Select>
               </div>
             </div>

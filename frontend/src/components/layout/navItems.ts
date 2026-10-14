@@ -19,8 +19,8 @@ export interface NavItem {
 }
 
 export const MAIN_NAV_ITEMS: NavItem[] = [
-  { id: 'overview', label: 'Overview', path: '/', icon: HomeIcon },
-  { id: 'students', label: 'Students', path: '/students', icon: UserIcon },
+  { id: 'overview', label: 'Overview', path: '/overview', icon: HomeIcon },
+  { id: 'profile', label: 'Profile', path: '/profile', icon: UserIcon },
   { id: 'courses', label: 'Courses', path: '/courses', icon: BookOpenIcon },
   { id: 'sources', label: 'Sources', path: '/sources', icon: FileTextIcon },
   { id: 'tutor', label: 'AI Tutor', path: '/tutor', icon: MessageSquareIcon },

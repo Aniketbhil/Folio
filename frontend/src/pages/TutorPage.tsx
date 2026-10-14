@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useStudent } from '../context/useStudent'
 import { useCourse } from '../context/useCourse'
 import {
@@ -22,6 +22,7 @@ import { Card, CardDescription, CardTitle } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Modal } from '../components/ui/Modal'
 import { Alert, LoadingState } from '../components/ui/Feedback'
+import { MarkdownRenderer } from '../components/ui/MarkdownRenderer'
 import {
   AlertCircleIcon,
   ArrowRightIcon,
@@ -39,8 +40,9 @@ import {
 } from '../components/ui/Icons'
 
 export const TutorPage: React.FC = () => {
-  const { activeStudent, students } = useStudent()
+  const { activeStudent } = useStudent()
   const { activeCourse, activeCourseDetail, courses } = useCourse()
+  const [searchParams] = useSearchParams()
 
   // Conversations list for active student & course
   const [conversations, setConversations] = useState<ConversationListItem[]>([])
@@ -57,6 +59,8 @@ export const TutorPage: React.FC = () => {
   const [inputContent, setInputContent] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
+  const [lastFailedText, setLastFailedText] = useState<string | null>(null)
+  const isSendingRef = useRef(false)
 
   // Mobile sessions toggle
   const [mobileSessionsOpen, setMobileSessionsOpen] = useState(false)
@@ -203,12 +207,29 @@ export const TutorPage: React.FC = () => {
     }
   }
 
+  // Pre-fill composer if navigating from Mastery with topicId / topicName
+  useEffect(() => {
+    const topicName = searchParams.get('topicName')
+    if (topicName) {
+      const timer = window.setTimeout(() => {
+        setInputContent((prev) =>
+          !prev ? `Can you explain the key concepts and intuition behind ${decodeURIComponent(topicName)}?` : prev
+        )
+        textareaRef.current?.focus()
+      }, 0)
+      return () => clearTimeout(timer)
+    }
+  }, [searchParams])
+
   // Send message
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend ?? inputContent).trim()
-    if (!text || isSending || !activeCourse || !activeStudent) return
+    if (!text || isSendingRef.current || isSending || !activeCourse || !activeStudent) return
 
+    isSendingRef.current = true
+    setIsSending(true)
     setSendError(null)
+    setLastFailedText(null)
 
     let targetConvId = activeConvId
 
@@ -233,6 +254,9 @@ export const TutorPage: React.FC = () => {
         setConversations((prev) => [asListItem, ...prev])
       } catch (err: unknown) {
         setSendError(err instanceof Error ? err.message : 'Failed to initiate conversation session.')
+        setLastFailedText(text)
+        isSendingRef.current = false
+        setIsSending(false)
         return
       }
     }
@@ -250,7 +274,6 @@ export const TutorPage: React.FC = () => {
 
     setMessages((prev) => [...prev, optimisticUserMsg])
     setInputContent('')
-    setIsSending(true)
     setTimeout(scrollToBottom, 30)
 
     try {
@@ -289,7 +312,11 @@ export const TutorPage: React.FC = () => {
       )
     } catch (err: unknown) {
       setSendError(err instanceof Error ? err.message : 'Tutor request failed.')
+      setLastFailedText(text)
+      // Restore user input draft if currently empty
+      setInputContent((curr) => (!curr.trim() ? text : curr))
     } finally {
+      isSendingRef.current = false
       setIsSending(false)
       setTimeout(scrollToBottom, 50)
     }
@@ -406,9 +433,9 @@ export const TutorPage: React.FC = () => {
 
             <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
               {!activeStudent && (
-                <Link to="/students">
+                <Link to="/profile">
                   <Button variant="primary" size="sm" leftIcon={<UserIcon />}>
-                    {students.length > 0 ? 'Select Active Student' : 'Create Student Profile'}
+                    Manage Profile
                   </Button>
                 </Link>
               )}
@@ -652,8 +679,20 @@ export const TutorPage: React.FC = () => {
                           )}
 
                           {/* Message Content */}
-                          <div className="leading-relaxed whitespace-pre-wrap font-sans">
-                            {msg.content}
+                          <div className="leading-relaxed font-sans overflow-hidden">
+                            {isUser ? (
+                              <div className="whitespace-pre-wrap">{msg.content}</div>
+                            ) : (
+                              <MarkdownRenderer
+                                content={msg.content}
+                                onCitationClick={(ref) => {
+                                  const cite = msg.citations?.find(
+                                    (c) => String(c.ref) === String(ref) || `[${c.ref}]` === String(ref)
+                                  )
+                                  if (cite) setInspectedCitation(cite)
+                                }}
+                              />
+                            )}
                           </div>
 
                           {/* Outside Knowledge Note */}
@@ -760,10 +799,27 @@ export const TutorPage: React.FC = () => {
                 <div ref={chatBottomRef} />
               </div>
 
-              {/* Send Error Alert */}
+              {/* Send Error Alert with Retry */}
               {sendError && (
                 <div className="p-3 border-t border-surface-border dark:border-dark-border">
-                  <Alert variant="error" title="Message Error" description={sendError} />
+                  <Alert
+                    variant="error"
+                    title="Message Error"
+                    description={sendError}
+                    action={
+                      lastFailedText ? (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => void handleSendMessage(lastFailedText)}
+                          disabled={isSending}
+                          leftIcon={<RefreshCwIcon className="w-3 h-3" />}
+                        >
+                          Retry
+                        </Button>
+                      ) : undefined
+                    }
+                  />
                 </div>
               )}
 
