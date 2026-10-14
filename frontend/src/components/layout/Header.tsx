@@ -40,29 +40,33 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileNav }) => {
 
   return (
     <header
-      className="h-14 shrink-0 bg-surface-card/95 dark:bg-dark-card/95 backdrop-blur-xs border-b border-surface-border dark:border-dark-border px-4 sm:px-5 md:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-30 transition-colors"
+      className="h-14 shrink-0 bg-surface-card/95 dark:bg-dark-card/95 backdrop-blur-xs border-b border-surface-border dark:border-dark-border px-3 sm:px-5 md:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-30 transition-colors"
       role="banner"
     >
       {/* Left: Mobile Menu Trigger + Brand on Mobile; Breadcrumb on Desktop */}
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <button
           type="button"
           onClick={onOpenMobileNav}
-          className="md:hidden -ml-1.5 p-2 rounded-lg text-surface-text-muted hover:text-surface-text hover:bg-surface-muted dark:text-dark-text-muted dark:hover:text-dark-text dark:hover:bg-dark-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 cursor-pointer"
+          className="md:hidden -ml-1 p-2 rounded-lg text-surface-text-muted hover:text-surface-text hover:bg-surface-muted dark:text-dark-text-muted dark:hover:text-dark-text dark:hover:bg-dark-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 cursor-pointer shrink-0"
           aria-label="Open mobile navigation menu"
         >
           <MenuIcon className="w-5 h-5" />
         </button>
 
         {/* Mobile Brand Logo */}
-        <div className="md:hidden">
-          <Link to="/" className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded">
-            <BrandLogo showTagline={false} />
+        <div className="md:hidden flex items-center min-w-0">
+          <Link
+            to="/"
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded flex items-center"
+            aria-label="Folio Home"
+          >
+            <BrandLogo showTagline={false} compactBadge={true} />
           </Link>
         </div>
 
         {/* Desktop Breadcrumb Section */}
-        <div className="hidden md:flex items-center gap-2 text-xs sm:text-sm text-surface-text-muted dark:text-dark-text-muted">
+        <div className="hidden md:flex items-center gap-2 text-xs sm:text-sm text-surface-text-muted dark:text-dark-text-muted truncate">
           <Link
             to="/"
             className="font-medium hover:text-surface-text dark:hover:text-dark-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
@@ -70,44 +74,82 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileNav }) => {
             Folio
           </Link>
           <span className="text-surface-border dark:text-dark-border select-none">/</span>
-          <span className="font-semibold text-surface-text dark:text-dark-text">
+          <span className="font-semibold text-surface-text dark:text-dark-text truncate">
             {currentSectionTitle}
           </span>
         </div>
       </div>
 
-      {/* Right: Active Context Pills & ThemeToggle */}
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* Active Course Pill */}
+      {/* Right: Active Context Controls & ThemeToggle */}
+      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        {/* Active Course Control */}
         <Link
           to="/courses"
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 bg-surface-card dark:bg-dark-card border-surface-border dark:border-dark-border hover:bg-surface-muted dark:hover:bg-dark-muted"
-          title={activeCourse ? `Active Course: ${activeCourse.name}` : 'Click to select an active course'}
+          className="relative inline-flex items-center gap-1.5 p-1.5 sm:px-2.5 sm:py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 bg-surface-card dark:bg-dark-card border-surface-border dark:border-dark-border hover:bg-surface-muted dark:hover:bg-dark-muted"
+          title={
+            activeCourse
+              ? `Active Course: ${activeCourse.name} (Click to switch)`
+              : 'No course selected (Click to choose a course)'
+          }
+          aria-label={
+            activeCourse
+              ? `Active Course: ${activeCourse.name}`
+              : 'Select active course'
+          }
         >
           <BookOpenIcon
-            className={`w-3.5 h-3.5 ${
-              activeCourse ? 'text-brand-600 dark:text-brand-400' : 'text-surface-text-muted dark:text-dark-text-muted'
+            className={`w-3.5 h-3.5 shrink-0 ${
+              activeCourse
+                ? 'text-brand-600 dark:text-brand-400'
+                : 'text-surface-text-muted dark:text-dark-text-muted'
             }`}
           />
-          <span className="max-w-25 sm:max-w-35 truncate text-surface-text dark:text-dark-text">
+          {/* Label visible from sm (640px) and above */}
+          <span className="hidden sm:inline max-w-28 md:max-w-36 lg:max-w-44 truncate text-surface-text dark:text-dark-text">
             {activeCourse ? activeCourse.name : 'Select Course'}
           </span>
+          {/* Status dot indicator on mobile */}
+          <span
+            className={`sm:hidden absolute -top-1 -right-1 w-2 h-2 rounded-full ring-2 ring-surface-card dark:ring-dark-card ${
+              activeCourse ? 'bg-brand-500' : 'bg-amber-500'
+            }`}
+            aria-hidden="true"
+          />
         </Link>
 
-        {/* Active Student Pill */}
+        {/* Active Student Control */}
         <Link
           to="/students"
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 bg-surface-card dark:bg-dark-card border-surface-border dark:border-dark-border hover:bg-surface-muted dark:hover:bg-dark-muted"
-          title={activeStudent ? `Active Student: ${activeStudent.name}` : 'Click to select an active student'}
+          className="relative inline-flex items-center gap-1.5 p-1.5 sm:px-2.5 sm:py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 bg-surface-card dark:bg-dark-card border-surface-border dark:border-dark-border hover:bg-surface-muted dark:hover:bg-dark-muted"
+          title={
+            activeStudent
+              ? `Active Student: ${activeStudent.name} (Click to switch)`
+              : 'No student selected (Click to choose a student)'
+          }
+          aria-label={
+            activeStudent
+              ? `Active Student: ${activeStudent.name}`
+              : 'Select active student'
+          }
         >
           <UserIcon
-            className={`w-3.5 h-3.5 ${
-              activeStudent ? 'text-brand-600 dark:text-brand-400' : 'text-surface-text-muted dark:text-dark-text-muted'
+            className={`w-3.5 h-3.5 shrink-0 ${
+              activeStudent
+                ? 'text-brand-600 dark:text-brand-400'
+                : 'text-surface-text-muted dark:text-dark-text-muted'
             }`}
           />
-          <span className="max-w-20 sm:max-w-30 truncate text-surface-text dark:text-dark-text">
+          {/* Label visible from sm (640px) and above */}
+          <span className="hidden sm:inline max-w-24 md:max-w-32 lg:max-w-40 truncate text-surface-text dark:text-dark-text">
             {activeStudent ? activeStudent.name : 'Select Student'}
           </span>
+          {/* Status dot indicator on mobile */}
+          <span
+            className={`sm:hidden absolute -top-1 -right-1 w-2 h-2 rounded-full ring-2 ring-surface-card dark:ring-dark-card ${
+              activeStudent ? 'bg-brand-500' : 'bg-amber-500'
+            }`}
+            aria-hidden="true"
+          />
         </Link>
 
         {/* Theme Toggle */}

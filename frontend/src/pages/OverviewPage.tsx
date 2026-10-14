@@ -203,23 +203,25 @@ export const OverviewPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-          <Card padding="md" variant="muted" className="space-y-2">
+          <Card padding="md" variant={hasCourse ? 'default' : 'muted'} className="space-y-2">
             <div className="flex items-center justify-between pb-1">
-              <div className="w-8 h-8 rounded-lg bg-surface-muted dark:bg-dark-muted flex items-center justify-center text-surface-text-muted dark:text-dark-text-muted">
+              <div className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-950/40 flex items-center justify-center text-brand-700 dark:text-brand-300">
                 <BookOpenIcon className="w-4 h-4" />
               </div>
-              <Badge variant="neutral" size="sm">
-                Sources
+              <Badge variant="brand" size="sm" dot>
+                Ready
               </Badge>
             </div>
-            <CardTitle className="text-sm">Course Sources & KB</CardTitle>
+            <CardTitle className="text-sm">Course Sources & Ingestion</CardTitle>
             <CardDescription className="text-xs">
               Upload PDF textbooks, lecture slides, and transcripts for automated chunking and topic indexing.
             </CardDescription>
             <div className="pt-2">
-              <span className="text-[11px] text-surface-text-muted dark:text-dark-text-muted font-medium">
-                Available in next chapter
-              </span>
+              <Link to="/sources">
+                <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
+                  Manage Sources
+                </Button>
+              </Link>
             </div>
           </Card>
 

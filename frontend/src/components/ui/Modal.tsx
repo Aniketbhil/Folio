@@ -7,7 +7,7 @@ export interface ModalProps {
   title: string
   description?: string
   children: React.ReactNode
-  maxWidth?: 'sm' | 'md' | 'lg'
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl'
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -47,11 +47,13 @@ export const Modal: React.FC<ModalProps> = ({
     sm: 'max-w-sm',
     md: 'max-w-md',
     lg: 'max-w-lg',
+    xl: 'max-w-xl',
+    '2xl': 'max-w-2xl',
   }[maxWidth]
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
@@ -65,10 +67,10 @@ export const Modal: React.FC<ModalProps> = ({
 
       {/* Modal Card */}
       <div
-        className={`relative w-full ${maxWidthStyles} bg-surface-card dark:bg-dark-card border border-surface-border dark:border-dark-border rounded-xl shadow-xl z-10 overflow-hidden transition-all`}
+        className={`relative w-full ${maxWidthStyles} max-h-[90vh] flex flex-col bg-surface-card dark:bg-dark-card border border-surface-border dark:border-dark-border rounded-xl shadow-xl z-10 overflow-hidden transition-all`}
       >
         {/* Header */}
-        <div className="flex items-start justify-between p-4 sm:p-5 border-b border-surface-border dark:border-dark-border">
+        <div className="shrink-0 flex items-start justify-between p-4 sm:p-5 border-b border-surface-border dark:border-dark-border">
           <div className="space-y-1 pr-4">
             <h3
               id="modal-title"
@@ -93,7 +95,7 @@ export const Modal: React.FC<ModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="p-4 sm:p-5">{children}</div>
+        <div className="p-4 sm:p-5 overflow-y-auto">{children}</div>
       </div>
     </div>
   )

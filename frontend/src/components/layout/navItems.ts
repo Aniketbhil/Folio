@@ -3,6 +3,7 @@ import {
   ActivityIcon,
   BookOpenIcon,
   CheckCircleIcon,
+  FileTextIcon,
   HomeIcon,
   MessageSquareIcon,
   UserIcon,
@@ -21,17 +22,10 @@ export const MAIN_NAV_ITEMS: NavItem[] = [
   { id: 'overview', label: 'Overview', path: '/', icon: HomeIcon },
   { id: 'students', label: 'Students', path: '/students', icon: UserIcon },
   { id: 'courses', label: 'Courses', path: '/courses', icon: BookOpenIcon },
+  { id: 'sources', label: 'Sources', path: '/sources', icon: FileTextIcon },
 ]
 
 export const UPCOMING_NAV_ITEMS: NavItem[] = [
-  {
-    id: 'sources',
-    label: 'Sources & Library',
-    path: '/sources',
-    icon: BookOpenIcon,
-    badge: 'Soon',
-    disabled: true,
-  },
   {
     id: 'tutor',
     label: 'AI Tutor',
