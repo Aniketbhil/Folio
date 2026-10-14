@@ -1,21 +1,23 @@
 import React, { useEffect } from 'react'
+import { NavLink } from 'react-router-dom'
 import { CloseIcon } from '../ui/Icons'
 import { BrandLogo } from './BrandLogo'
-import { NAV_ITEMS, type NavItem } from './navItems'
+import { MAIN_NAV_ITEMS, UPCOMING_NAV_ITEMS } from './navItems'
+import { useStudent } from '../../context/useStudent'
+import { useCourse } from '../../context/useCourse'
 
 export interface MobileNavProps {
   isOpen: boolean
   onClose: () => void
-  activeId: string
-  onSelect: (id: string) => void
 }
 
 export const MobileNav: React.FC<MobileNavProps> = ({
   isOpen,
   onClose,
-  activeId,
-  onSelect,
 }) => {
+  const { activeStudent } = useStudent()
+  const { activeCourse } = useCourse()
+
   // Lock body scroll while drawer is open
   useEffect(() => {
     if (isOpen) {
@@ -51,10 +53,12 @@ export const MobileNav: React.FC<MobileNavProps> = ({
       />
 
       {/* Drawer surface */}
-      <div className="fixed inset-y-0 left-0 w-72 max-w-[85vw] bg-surface-card dark:bg-dark-card border-r border-surface-border dark:border-dark-border shadow-xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
+      <div className="fixed inset-y-0 left-0 w-72 max-w-[85vw] bg-surface-card dark:bg-dark-card border-r border-surface-border dark:border-dark-border shadow-xl flex flex-col z-10">
         {/* Header with Brand and Close button */}
         <div className="h-14 px-4 flex items-center justify-between border-b border-surface-border dark:border-dark-border">
-          <BrandLogo />
+          <NavLink to="/" onClick={onClose}>
+            <BrandLogo />
+          </NavLink>
           <button
             type="button"
             onClick={onClose}
@@ -66,54 +70,93 @@ export const MobileNav: React.FC<MobileNavProps> = ({
         </div>
 
         {/* Navigation list */}
-        <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto" aria-label="Mobile application navigation">
-          <div className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-surface-text-muted/80 dark:text-dark-text-muted/80">
-            Navigation
-          </div>
-          {NAV_ITEMS.map((item: NavItem) => {
-            const isActive = activeId === item.id
-            const Icon = item.icon
+        <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto" aria-label="Mobile application navigation">
+          <div className="space-y-1">
+            <div className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-surface-text-muted/80 dark:text-dark-text-muted/80">
+              Workspace
+            </div>
+            {MAIN_NAV_ITEMS.map((item) => {
+              const Icon = item.icon
 
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  onSelect(item.id)
-                  onClose()
-                }}
-                className={`w-full min-h-11 flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
-                  isActive
-                    ? 'bg-brand-50 text-brand-800 dark:bg-brand-950/70 dark:text-brand-200 font-semibold'
-                    : 'text-surface-text-muted hover:text-surface-text hover:bg-surface-muted dark:text-dark-text-muted dark:hover:text-dark-text dark:hover:bg-dark-muted'
-                }`}
-                aria-current={isActive ? 'page' : undefined}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon
-                    className={`w-4 h-4 shrink-0 ${
+              return (
+                <NavLink
+                  key={item.id}
+                  to={item.path}
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    `w-full min-h-11 flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
                       isActive
-                        ? 'text-brand-600 dark:text-brand-400'
-                        : 'text-surface-text-muted dark:text-dark-text-muted'
-                    }`}
-                  />
-                  <span>{item.label}</span>
+                        ? 'bg-brand-50 text-brand-800 dark:bg-brand-950/70 dark:text-brand-200 font-semibold'
+                        : 'text-surface-text-muted hover:text-surface-text hover:bg-surface-muted dark:text-dark-text-muted dark:hover:text-dark-text dark:hover:bg-dark-muted'
+                    }`
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <Icon
+                          className={`w-4 h-4 shrink-0 ${
+                            isActive
+                              ? 'text-brand-600 dark:text-brand-400'
+                              : 'text-surface-text-muted dark:text-dark-text-muted'
+                          }`}
+                        />
+                        <span>{item.label}</span>
+                      </div>
+                      {item.badge && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand-100 text-brand-800 dark:bg-brand-900 dark:text-brand-200">
+                          {item.badge}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              )
+            })}
+          </div>
+
+          <div className="space-y-1 pt-2 border-t border-surface-border-subtle dark:border-dark-border-subtle">
+            <div className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-surface-text-muted/80 dark:text-dark-text-muted/80">
+              Upcoming Modules
+            </div>
+            {UPCOMING_NAV_ITEMS.map((item) => {
+              const Icon = item.icon
+
+              return (
+                <div
+                  key={item.id}
+                  className="w-full min-h-10 flex items-center justify-between px-3.5 py-2 rounded-lg text-sm text-surface-text-muted/50 dark:text-dark-text-muted/50 cursor-not-allowed select-none"
+                  aria-disabled="true"
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className="w-4 h-4 shrink-0 text-surface-text-muted/40 dark:text-dark-text-muted/40" />
+                    <span>{item.label}</span>
+                  </div>
+                  {item.badge && (
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-surface-muted text-surface-text-muted/70 dark:bg-dark-muted dark:text-dark-text-muted/70 border border-surface-border-subtle dark:border-dark-border-subtle">
+                      {item.badge}
+                    </span>
+                  )}
                 </div>
-                {item.badge && (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand-100 text-brand-800 dark:bg-brand-900 dark:text-brand-200">
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            )
-          })}
+              )
+            })}
+          </div>
         </nav>
 
-        {/* Mobile footer */}
-        <div className="p-4 border-t border-surface-border dark:border-dark-border bg-surface-muted/30 dark:bg-dark-muted/30">
-          <p className="text-xs text-surface-text-muted dark:text-dark-text-muted">
-            Folio Adaptive Learning System
-          </p>
+        {/* Mobile footer: Real Active Context */}
+        <div className="p-3 border-t border-surface-border dark:border-dark-border bg-surface-muted/30 dark:bg-dark-muted/30 space-y-1">
+          <div className="text-xs truncate">
+            <span className="text-surface-text-muted dark:text-dark-text-muted">Student: </span>
+            <span className="font-semibold text-surface-text dark:text-dark-text">
+              {activeStudent ? activeStudent.name : 'None selected'}
+            </span>
+          </div>
+          <div className="text-xs truncate">
+            <span className="text-surface-text-muted dark:text-dark-text-muted">Course: </span>
+            <span className="font-semibold text-surface-text dark:text-dark-text">
+              {activeCourse ? activeCourse.name : 'None selected'}
+            </span>
+          </div>
         </div>
       </div>
     </div>

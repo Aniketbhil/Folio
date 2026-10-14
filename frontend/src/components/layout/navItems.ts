@@ -5,19 +5,60 @@ import {
   CheckCircleIcon,
   HomeIcon,
   MessageSquareIcon,
+  UserIcon,
 } from '../ui/Icons'
 
 export interface NavItem {
   id: string
   label: string
+  path: string
   icon: React.ComponentType<{ className?: string }>
   badge?: string
+  disabled?: boolean
 }
 
-export const NAV_ITEMS: NavItem[] = [
-  { id: 'overview', label: 'Overview', icon: HomeIcon },
-  { id: 'sources', label: 'Sources & Library', icon: BookOpenIcon },
-  { id: 'tutor', label: 'AI Tutor', icon: MessageSquareIcon },
-  { id: 'assessments', label: 'Assessments', icon: CheckCircleIcon },
-  { id: 'mastery', label: 'Knowledge & Mastery', icon: ActivityIcon },
+export const MAIN_NAV_ITEMS: NavItem[] = [
+  { id: 'overview', label: 'Overview', path: '/', icon: HomeIcon },
+  { id: 'students', label: 'Students', path: '/students', icon: UserIcon },
+  { id: 'courses', label: 'Courses', path: '/courses', icon: BookOpenIcon },
+]
+
+export const UPCOMING_NAV_ITEMS: NavItem[] = [
+  {
+    id: 'sources',
+    label: 'Sources & Library',
+    path: '/sources',
+    icon: BookOpenIcon,
+    badge: 'Soon',
+    disabled: true,
+  },
+  {
+    id: 'tutor',
+    label: 'AI Tutor',
+    path: '/tutor',
+    icon: MessageSquareIcon,
+    badge: 'Soon',
+    disabled: true,
+  },
+  {
+    id: 'assessments',
+    label: 'Assessments',
+    path: '/assessments',
+    icon: CheckCircleIcon,
+    badge: 'Soon',
+    disabled: true,
+  },
+  {
+    id: 'mastery',
+    label: 'Knowledge & Mastery',
+    path: '/mastery',
+    icon: ActivityIcon,
+    badge: 'Soon',
+    disabled: true,
+  },
+]
+
+export const ALL_NAV_ITEMS: NavItem[] = [
+  ...MAIN_NAV_ITEMS,
+  ...UPCOMING_NAV_ITEMS,
 ]
