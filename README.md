@@ -1,5 +1,3 @@
-# Folio
-
 <p align="center">
   <!-- TODO: add logo -->
   <h1 align="center">Folio</h1>
@@ -40,7 +38,6 @@
    - [Evaluation Harness](#evaluation-harness)
 3. [Tech Stack](#tech-stack)
 4. [Architecture](#architecture)
-   - [System Topology](#system-topology)
    - [Grounded Tutor Sequence Flow](#grounded-tutor-sequence-flow)
    - [How Grounding Works](#how-grounding-works)
    - [How the Learner Model Works](#how-the-learner-model-works)
@@ -188,39 +185,6 @@ Folio transforms course materials into an authenticated, verifiable personal tut
 ---
 
 ## Architecture
-
-### System Topology
-
-```mermaid
-flowchart TD
-    User["Student / Client"] -->|HTTPS / REST| FE["Frontend (React 19 / Vite / Tailwind v4)"]
-    FE -->|API Calls (Bearer JWT)| API["FastAPI Application Layer (app/main.py)"]
-    
-    subgraph Core_Services ["Application Services"]
-        API --> Auth["Auth Service (Argon2 / JWT)"]
-        API --> Ingest["Ingestion Pipeline (PyMuPDF / python-pptx)"]
-        API --> KB["Knowledge Base Builder"]
-        API --> Tutor["Grounded Tutor Service"]
-        API --> Assess["Assessment Engine & Verifier"]
-        API --> Learner["Learner Model (BKT & Forgetting)"]
-    end
-    
-    subgraph Data_Storage ["Data & Storage Layer"]
-        Auth --> SQLite[("SQLite Database (folio.db)")]
-        Ingest --> Uploads["File Storage (storage/uploads)"]
-        Ingest --> Chroma[("ChromaDB Vector Store (storage/chroma)")]
-        KB --> SQLite
-        Assess --> Chroma
-        Assess --> SQLite
-        Learner --> SQLite
-    end
-    
-    subgraph AI_Provider ["Google Gemini Engine"]
-        Tutor -->|Generation & Citations| GenAI["Google Gemini Client (gemini-2.5-flash)"]
-        Ingest -->|Embeddings| Embed["Gemini Embeddings (gemini-embedding-001)"]
-        Assess -->|Verification| VerifyLLM["Verifier Model (VERIFY_MODEL)"]
-    end
-```
 
 ### Grounded Tutor Sequence Flow
 
