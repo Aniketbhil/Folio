@@ -1,1 +1,0 @@
-## Folio | A source-grounded AI study companion.
