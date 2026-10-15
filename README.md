@@ -762,7 +762,7 @@ Simulated across 4 learner archetypes over a 30-day curriculum:
 ## Demo
 
 <!-- TODO: add demo video link -->
-🎥 **Watch the Demo Video:** [PLACEHOLDER] *(coming soon)*
+🎥 **Watch the Demo Video:** [Click Here to Watch](https://youtu.be/STgh9FFmMeM?si=mZU4uT6V3_ya-210)
 
 ---
 
