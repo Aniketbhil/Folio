@@ -67,7 +67,7 @@ export const Modal: React.FC<ModalProps> = ({
 
       {/* Modal Card */}
       <div
-        className={`relative w-full ${maxWidthStyles} max-h-[90vh] flex flex-col bg-surface-card dark:bg-dark-card border border-surface-border dark:border-dark-border rounded-xl shadow-xl z-10 overflow-hidden transition-all`}
+        className={`relative w-full ${maxWidthStyles} max-h-[90vh] flex flex-col bg-surface-card dark:bg-dark-card border border-surface-border dark:border-dark-border rounded-xl shadow-xl z-10 overflow-hidden transition-all animate-scale-in`}
       >
         {/* Header */}
         <div className="shrink-0 flex items-start justify-between p-4 sm:p-5 border-b border-surface-border dark:border-dark-border">

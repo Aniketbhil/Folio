@@ -79,10 +79,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const register = useCallback(async (payload: SignupRequest) => {
     setError(null)
     try {
-      const response = await apiSignup(payload)
-      setAuthToken(response.access_token)
-      setTokenState(response.access_token)
-      setUser(response.student)
+      await apiSignup(payload)
+      // Account created successfully on backend. User is redirected to login to authenticate.
     } catch (err) {
       const msg = formatApiError(err, 'Failed to create account. Please check your details.')
       setError(msg)

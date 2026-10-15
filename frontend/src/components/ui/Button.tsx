@@ -30,7 +30,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ) => {
     // Base styles: clear typography, touch-friendly min targets, subtle transitions, accessible focus-visible
     const baseStyles =
-      'inline-flex items-center justify-center font-medium rounded-lg transition-colors cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-dark-card disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none'
+      'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-150 cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-dark-card active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:active:scale-100'
 
     const sizeStyles = {
       sm: 'text-xs px-2.5 py-1.5 min-h-[34px] gap-1.5',
@@ -40,11 +40,11 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 
     const variantStyles = {
       primary:
-        'bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800 shadow-xs dark:bg-brand-600 dark:hover:bg-brand-500',
+        'bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800 shadow-xs hover:shadow-sm dark:bg-brand-600 dark:hover:bg-brand-500',
       secondary:
-        'bg-surface-muted text-surface-text border border-surface-border hover:bg-surface-border/60 dark:bg-dark-muted dark:text-dark-text dark:border-dark-border dark:hover:bg-dark-border/80',
+        'bg-surface-muted text-surface-text border border-surface-border hover:bg-surface-border/60 hover:border-surface-text-muted/30 dark:bg-dark-muted dark:text-dark-text dark:border-dark-border dark:hover:bg-dark-border/80',
       outline:
-        'bg-transparent text-surface-text border border-surface-border hover:bg-surface-muted dark:text-dark-text dark:border-dark-border dark:hover:bg-dark-muted',
+        'bg-transparent text-surface-text border border-surface-border hover:bg-surface-muted hover:border-surface-text-muted/40 dark:text-dark-text dark:border-dark-border dark:hover:bg-dark-muted',
       ghost:
         'bg-transparent text-surface-text hover:bg-surface-muted dark:text-dark-text dark:hover:bg-dark-muted',
       danger:

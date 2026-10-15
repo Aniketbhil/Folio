@@ -44,22 +44,22 @@ export const OverviewPage: React.FC = () => {
         }
       />
 
-      {/* Backend connection / Metadata status banner */}
+      {/* Service connection / Metadata status banner */}
       {metaError ? (
         <Alert
           variant="error"
-          title="Backend Connection Notice"
+          title="Connection Notice"
           description={metaError}
         />
       ) : isMetaLoading ? (
         <div className="text-xs text-surface-text-muted dark:text-dark-text-muted animate-pulse">
-          Connecting to Folio backend services...
+          Connecting to Folio services...
         </div>
       ) : meta ? (
         <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-xl border border-surface-border dark:border-dark-border bg-surface-card dark:bg-dark-card shadow-xs text-xs">
           <div className="flex items-center gap-2 text-surface-text dark:text-dark-text">
             <ShieldCheck className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-            <span className="font-medium">Backend v{meta.version} Connected</span>
+            <span className="font-medium">Core Services v{meta.version} Operational</span>
             <span className="text-surface-border dark:text-dark-border">&bull;</span>
             <span className="text-surface-text-muted dark:text-dark-text-muted">
               LLM Engine: <strong className="text-surface-text dark:text-dark-text capitalize">{meta.features.llm_mode}</strong>

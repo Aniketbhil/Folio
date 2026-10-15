@@ -24,7 +24,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
       muted:
         'bg-surface-muted border-surface-border-subtle dark:bg-dark-muted dark:border-dark-border-subtle',
       interactive:
-        'bg-surface-card border-surface-border shadow-xs hover:border-brand-500/50 hover:shadow-sm cursor-pointer dark:bg-dark-card dark:border-dark-border dark:hover:border-brand-500/50',
+        'bg-surface-card border-surface-border shadow-xs hover:border-brand-500/50 hover:shadow-sm active:scale-[0.99] cursor-pointer dark:bg-dark-card dark:border-dark-border dark:hover:border-brand-500/50 transition-all duration-150',
     }[variant]
 
     // Spacing scale: compact on mobile (14-16px), comfortable on desktop (16-20px)
